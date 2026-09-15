@@ -11,6 +11,7 @@ export default function AuthForm({ onSuccess }) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('job_seeker'); // 'job_seeker' or 'recruiter'
 
   const toggleMode = () => {
     setIsLogin(!isLogin);
@@ -19,6 +20,7 @@ export default function AuthForm({ onSuccess }) {
     setFullName('');
     setEmail('');
     setPassword('');
+    setRole('job_seeker');
   };
 
   const handleSubmit = async (e) => {
@@ -36,9 +38,10 @@ export default function AuthForm({ onSuccess }) {
         if (!fullName.trim()) {
           throw new Error("Full Name is required for registration.");
         }
-        const { error } = await signUp(email, password, fullName);
+        const { error } = await signUp(email, password, fullName, role);
         if (error) throw error;
-        setSuccessMsg("Registration successful! Please check your email to verify your account.");
+        setSuccessMsg("Registration successful! Logging you in...");
+        if (onSuccess) onSuccess();
       }
     } catch (err) {
       setErrorMsg(err.message || 'An unexpected error occurred.');
@@ -71,6 +74,52 @@ export default function AuthForm({ onSuccess }) {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Role Selection - Only for Sign Up */}
+          {!isLogin && (
+            <div>
+              <label className="block text-white/90 text-sm font-semibold mb-2">
+                I am registering as:
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRole('job_seeker')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'job_seeker'
+                      ? 'bg-white/25 border-white text-white shadow-lg ring-2 ring-white/60'
+                      : 'bg-white/5 border-white/15 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="text-lg">🎯</span>
+                    <span className="font-bold text-sm">Job Seeker</span>
+                  </div>
+                  <p className="text-[11px] text-white/80 leading-snug">
+                    AI coaching, roadmap & job matching
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setRole('recruiter')}
+                  className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                    role === 'recruiter'
+                      ? 'bg-white/25 border-white text-white shadow-lg ring-2 ring-white/60'
+                      : 'bg-white/5 border-white/15 text-white/70 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2 mb-1">
+                    <span className="text-lg">🏢</span>
+                    <span className="font-bold text-sm">Recruiter</span>
+                  </div>
+                  <p className="text-[11px] text-white/80 leading-snug">
+                    Post jobs & AI multi-candidate ranker
+                  </p>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Full Name - Only for Sign Up */}
           {!isLogin && (
             <div>
@@ -83,7 +132,7 @@ export default function AuthForm({ onSuccess }) {
                 onChange={(e) => setFullName(e.target.value)}
                 required={!isLogin}
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/50 text-white placeholder-white/30 transition-all"
-                placeholder="Jane Doe"
+                placeholder={role === 'recruiter' ? "Alex Vance (Talent Lead)" : "Jane Doe"}
               />
             </div>
           )}

@@ -1,8 +1,67 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Search, ChevronDown } from 'lucide-react';
 import OpportunityCard from './OpportunityCard';
-import { supabase } from '../lib/auth';
+import { supabase, isSupabaseConfigured } from '../lib/auth';
 import { analyzeResumeAndOpportunities } from '../lib/ai';
+
+const SAMPLE_OPPORTUNITIES = [
+  {
+    id: 'sample-1',
+    title: 'HackMIT 2026',
+    organization: 'MIT',
+    category: 'Hackathon',
+    opportunity_link: 'https://hackmit.org',
+    deadline: 'Applications close Oct 15',
+    summary: 'Join 1,000+ top hackers from across the globe at MIT for a 36-hour weekend of hacking, mentorship, and building world-changing applications.',
+    aiMatchReason: '✨ Perfect for strengthening your full-stack development and team collaboration skills!'
+  },
+  {
+    id: 'sample-2',
+    title: 'Software Engineering Intern (Summer 2026)',
+    organization: 'Google',
+    category: 'Internship',
+    opportunity_link: 'https://careers.google.com',
+    deadline: 'Rolling admissions',
+    summary: 'Build scalable distributed systems, work with industry-leading mentors, and solve complex algorithms using Python, Go, and cloud platforms.',
+    aiMatchReason: '🎯 Strong match with your backend programming experience and data structure foundation.'
+  },
+  {
+    id: 'sample-3',
+    title: 'Generative AI Research Fellow',
+    organization: 'NSF REU Site',
+    category: 'Research',
+    opportunity_link: 'https://nsf.gov',
+    deadline: 'Nov 30',
+    summary: 'Engage in cutting-edge multimodal deep learning research, contributing to high-impact papers and working alongside leading faculty.',
+    aiMatchReason: '🚀 Excellent opportunity to deepen your machine learning background and publication profile.'
+  },
+  {
+    id: 'sample-4',
+    title: 'Full Stack AI Engineer',
+    organization: 'Frontier AI Labs',
+    category: 'Job',
+    opportunity_link: 'https://careerladder.dev',
+    deadline: 'Immediate',
+    summary: 'Design and deploy state-of-the-art LLM-powered interfaces, high-performance APIs, and next-generation developer tooling.',
+    aiMatchReason: '🔥 Direct match for your React and AI integration capabilities.'
+  }
+];
+
+function FilterPill({ label, activeFilter, onSelect }) {
+  const isActive = activeFilter === label;
+  return (
+    <button 
+      onClick={() => onSelect(label)}
+      className={`px-5 py-2 text-sm whitespace-nowrap transition-all rounded-full ${
+        isActive 
+          ? 'font-bold text-gray-900 bg-white shadow-sm active:scale-95' 
+          : 'font-semibold text-gray-500 hover:text-gray-900'
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
 
 export default function Dashboard({ resumeText, onAskAI }) {
   const [opportunities, setOpportunities] = useState([]);
@@ -13,7 +72,20 @@ export default function Dashboard({ resumeText, onAskAI }) {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    let ignore = false;
     const fetchOpportunities = async () => {
+      if (!isSupabaseConfigured) {
+        let sampleData = SAMPLE_OPPORTUNITIES;
+        if (resumeText) {
+          sampleData = await analyzeResumeAndOpportunities(resumeText, sampleData);
+        }
+        if (!ignore) {
+          setOpportunities(sampleData);
+          setLoading(false);
+        }
+        return;
+      }
+
       try {
         const { data, error } = await supabase
           .from('opportunities')
@@ -22,23 +94,33 @@ export default function Dashboard({ resumeText, onAskAI }) {
 
         if (error) throw error;
         
-        let fetchedData = data || [];
+        let fetchedData = (data && data.length > 0) ? data : SAMPLE_OPPORTUNITIES;
         
         // If we have a resume, analyze the top opportunities
         if (resumeText && fetchedData.length > 0) {
           fetchedData = await analyzeResumeAndOpportunities(resumeText, fetchedData);
         }
 
-        setOpportunities(fetchedData);
+        if (!ignore) setOpportunities(fetchedData);
       } catch (err) {
-        console.error('Error fetching opportunities:', err.message);
+        console.warn('Opportunities fetch fallback:', err.message);
+        if (!ignore) setOpportunities(SAMPLE_OPPORTUNITIES);
       } finally {
-        setLoading(false);
+        if (!ignore) setLoading(false);
       }
     };
 
     fetchOpportunities();
-  }, []);
+    return () => { ignore = true; };
+  }, [resumeText]);
+
+  const handleFilterSelect = (label) => {
+    setActiveFilter(label);
+    if (label !== 'Everything') {
+      setTaskFilter('ALL TASKS');
+      setIsTaskDropdownOpen(false);
+    }
+  };
 
   const filteredOpportunities = useMemo(() => {
     return opportunities.filter(opp => {
@@ -81,29 +163,6 @@ export default function Dashboard({ resumeText, onAskAI }) {
     });
   }, [opportunities, activeFilter, searchQuery, taskFilter]);
 
-  // Reusable component for the filter pills
-  const FilterPill = ({ label }) => {
-    const isActive = activeFilter === label;
-    return (
-      <button 
-        onClick={() => {
-          setActiveFilter(label);
-          if (label !== 'Everything') {
-            setTaskFilter('ALL TASKS'); // Reset task filter when leaving 'Everything' tab
-            setIsTaskDropdownOpen(false);
-          }
-        }}
-        className={`px-5 py-2 text-sm whitespace-nowrap transition-all rounded-full ${
-          isActive 
-            ? 'font-bold text-gray-900 bg-white shadow-sm active:scale-95' 
-            : 'font-semibold text-gray-500 hover:text-gray-900'
-        }`}
-      >
-        {label}
-      </button>
-    );
-  };
-
   return (
     <div className="max-w-6xl mx-auto w-full">
       {/* Top Header Row: Title & Filter Pills */}
@@ -121,10 +180,10 @@ export default function Dashboard({ resumeText, onAskAI }) {
 
         {/* Pill-shaped Filter Bar */}
         <div className="flex bg-gray-100 p-1.5 rounded-full self-start shadow-inner border border-gray-200/60 overflow-x-auto max-w-full">
-          <FilterPill label="Everything" />
-          <FilterPill label="Undergraduate" />
-          <FilterPill label="Graduate / PhD" />
-          <FilterPill label="Professional" />
+          <FilterPill label="Everything" activeFilter={activeFilter} onSelect={handleFilterSelect} />
+          <FilterPill label="Undergraduate" activeFilter={activeFilter} onSelect={handleFilterSelect} />
+          <FilterPill label="Graduate / PhD" activeFilter={activeFilter} onSelect={handleFilterSelect} />
+          <FilterPill label="Professional" activeFilter={activeFilter} onSelect={handleFilterSelect} />
         </div>
       </div>
 

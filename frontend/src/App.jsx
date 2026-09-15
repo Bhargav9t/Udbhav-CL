@@ -1,100 +1,314 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, signOut } from './lib/auth';
+import { supabase, isSupabaseConfigured, getCurrentUser } from './lib/auth';
 import AuthForm from './components/AuthForm';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import AICoach from './components/AICoach';
 import MyLadder from './components/MyLadder';
 import CareerProgressionBoard from './components/CareerProgressionBoard';
+import JobMatcher from './components/JobMatcher';
+
+// Recruiter Components
+import RecruiterDashboard from './components/recruiter/RecruiterDashboard';
+import CreateJobForm from './components/recruiter/CreateJobForm';
+import RecruiterJobs from './components/recruiter/RecruiterJobs';
+import CandidateRanker from './components/recruiter/CandidateRanker';
+import RecruiterAnalytics from './components/recruiter/RecruiterAnalytics';
 
 export default function App() {
   const [session, setSession] = useState(null);
+  const [userRole, setUserRole] = useState('job_seeker'); // 'job_seeker' or 'recruiter'
   const [loading, setLoading] = useState(true);
   
-  // Routing and AI Coach state
-  const [currentView, setCurrentView] = useState('dashboard'); // 'dashboard' or 'aicoach'
+  // Navigation & context state
+  const [currentView, setCurrentView] = useState('dashboard');
   const [resumeText, setResumeText] = useState(() => localStorage.getItem('career_ladder_resume') || '');
   const [currentJobContext, setCurrentJobContext] = useState(null);
+  const [activeRecruiterJob, setActiveRecruiterJob] = useState(null);
 
   // Persist resume text
   useEffect(() => {
     localStorage.setItem('career_ladder_resume', resumeText);
   }, [resumeText]);
 
-  // Navigation handlers
+  // Sync user role from authentication profile
+  const syncRole = async (user) => {
+    if (!user) return;
+    try {
+      const { profile } = await getCurrentUser();
+      const detectedRole = profile?.role || user.user_metadata?.role || 'job_seeker';
+      setUserRole(detectedRole);
+
+      // Route guard on initial session acquisition
+      if (detectedRole === 'recruiter') {
+        setCurrentView((prev) => (prev.startsWith('recruiter') ? prev : 'recruiter_dashboard'));
+      } else {
+        setCurrentView((prev) => (prev.startsWith('recruiter') ? 'dashboard' : prev));
+      }
+    } catch (e) {
+      console.warn('Role sync warning:', e);
+    }
+  };
+
+  // Check active session & subscribe to auth changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const s = data?.session || null;
+      setSession(s);
+      if (s?.user) {
+        syncRole(s.user);
+      } else {
+        // Check local storage fallback
+        const saved = localStorage.getItem('career_ladder_local_user');
+        if (saved) {
+          try {
+            const u = JSON.parse(saved);
+            const r = u.user_metadata?.role || 'job_seeker';
+            setSession({ user: u });
+            setUserRole(r);
+            setCurrentView(r === 'recruiter' ? 'recruiter_dashboard' : 'dashboard');
+          } catch (err) {
+            console.error(err);
+          }
+        }
+      }
+      setLoading(false);
+    }).catch((err) => {
+      console.warn('Session check fallback:', err);
+      setLoading(false);
+    });
+
+    const {
+      data: { subscription } = {},
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session?.user) {
+        syncRole(session.user);
+      }
+    });
+
+    return () => subscription?.unsubscribe?.();
+  }, []);
+
+  // Strict Role-Based View Navigation with Guards
+  const handleNavigate = (view) => {
+    // If Job Seeker attempts to access Recruiter routes -> redirect to Job Seeker Dashboard
+    if (userRole === 'job_seeker' && view.startsWith('recruiter')) {
+      console.warn('Access denied: Job Seeker redirected from recruiter route.');
+      setCurrentView('dashboard');
+      return;
+    }
+
+    // If Recruiter attempts to access Job Seeker-only routes -> redirect to Recruiter Dashboard
+    if (userRole === 'recruiter' && !view.startsWith('recruiter')) {
+      console.warn('Access denied: Recruiter redirected from job seeker route.');
+      setCurrentView('recruiter_dashboard');
+      return;
+    }
+
+    setCurrentView(view);
+  };
+
+  // Job Seeker: Open AI Coach with Job context
   const handleOpenAICoachWithJob = (job) => {
     setCurrentJobContext(job);
     setCurrentView('aicoach');
   };
 
-  const handleNavigate = (view) => {
-    setCurrentView(view);
+  // Recruiter: Select Job to launch AI Multi-Candidate Ranker
+  const handleSelectRecruiterJob = (job) => {
+    setActiveRecruiterJob(job);
+    setCurrentView('recruiter_ranker');
   };
 
-  useEffect(() => {
-    // Check active session immediately
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
-
-    // Listen for changes on auth state (login, logout, token refresh)
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleSignOut = async () => {
-    await signOut();
+  // Role Switcher for instant testing / demo toggle
+  const handleSwitchRole = () => {
+    const nextRole = userRole === 'recruiter' ? 'job_seeker' : 'recruiter';
+    setUserRole(nextRole);
+    if (session?.user) {
+      const updatedUser = {
+        ...session.user,
+        user_metadata: {
+          ...session.user.user_metadata,
+          role: nextRole
+        }
+      };
+      setSession({ ...session, user: updatedUser });
+      localStorage.setItem('career_ladder_local_user', JSON.stringify(updatedUser));
+    }
+    setCurrentView(nextRole === 'recruiter' ? 'recruiter_dashboard' : 'dashboard');
   };
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white text-xl animate-pulse">Loading...</div>
+        <div className="text-white text-xl animate-pulse">Loading CareerLadder...</div>
       </div>
     );
   }
 
-  // If no session exists, show the authentication form in a dark container
+  // If no session exists, show AuthForm with instant demo entrypoints
   if (!session) {
     const handleAuthSuccess = async () => {
-      const { data } = await supabase.auth.getSession();
-      setSession(data.session);
+      try {
+        const { data } = await supabase.auth.getSession();
+        setSession(data?.session || null);
+        if (data?.session?.user) {
+          await syncRole(data.session.user);
+        } else {
+          const saved = localStorage.getItem('career_ladder_local_user');
+          if (saved) {
+            const u = JSON.parse(saved);
+            setSession({ user: u });
+            const r = u.user_metadata?.role || 'job_seeker';
+            setUserRole(r);
+            setCurrentView(r === 'recruiter' ? 'recruiter_dashboard' : 'dashboard');
+          }
+        }
+      } catch (e) {
+        console.error('Auth success check failed:', e);
+      }
     };
+
+    const handleEnterDemo = (roleChoice = 'job_seeker') => {
+      const demoUser = {
+        id: roleChoice === 'recruiter' ? 'recruiter-demo-id' : 'demo-user-id',
+        email: roleChoice === 'recruiter' ? 'recruiter@apexlabs.ai' : 'candidate@careerladder.dev',
+        user_metadata: { 
+          full_name: roleChoice === 'recruiter' ? 'Sarah Jenkins (Apex Labs)' : 'Aarav Sharma',
+          role: roleChoice
+        }
+      };
+      localStorage.setItem('career_ladder_local_user', JSON.stringify(demoUser));
+      setSession({ user: demoUser });
+      setUserRole(roleChoice);
+      setCurrentView(roleChoice === 'recruiter' ? 'recruiter_dashboard' : 'dashboard');
+    };
+
     return (
-      <div className="min-h-screen bg-gray-900">
+      <div className="min-h-screen bg-gray-900 flex flex-col justify-center items-center p-4">
+        {!isSupabaseConfigured && (
+          <div className="w-full max-w-md mb-6 p-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs text-center backdrop-blur-md">
+            <p className="font-bold text-sm mb-1 text-amber-100">CareerLadder Multi-Role Environment</p>
+            <p className="mb-3 text-amber-300/90 leading-relaxed text-[11px]">
+              Explore both the <strong>Job Seeker Portal</strong> (AI Coach, Job Matcher, Roadmap) and the <strong>Recruiter Portal</strong> (Job Postings, Multi-Resume AI Ranker).
+            </p>
+            <div className="flex items-center justify-center gap-2">
+              <button
+                onClick={() => handleEnterDemo('job_seeker')}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors shadow-md text-xs cursor-pointer"
+              >
+                🎯 Job Seeker Demo
+              </button>
+              <button
+                onClick={() => handleEnterDemo('recruiter')}
+                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition-colors shadow-md text-xs cursor-pointer"
+              >
+                🏢 Recruiter Demo
+              </button>
+            </div>
+          </div>
+        )}
         <AuthForm onSuccess={handleAuthSuccess} />
       </div>
     );
   }
 
-  // If a session exists, show the Main Dashboard wrapped in the Layout
+  // Active Session Layout
   return (
-    <Layout session={session} currentView={currentView} onNavigate={handleNavigate}>
-      {currentView === 'dashboard' && (
-        <Dashboard 
-          resumeText={resumeText} 
-          onAskAI={handleOpenAICoachWithJob} 
-        />
+    <Layout 
+      session={session} 
+      userRole={userRole} 
+      currentView={currentView} 
+      onNavigate={handleNavigate}
+      onSwitchRole={handleSwitchRole}
+    >
+      {/* ================= JOB SEEKER VIEWS ================= */}
+      {userRole === 'job_seeker' && (
+        <>
+          {currentView === 'dashboard' && (
+            <Dashboard 
+              resumeText={resumeText} 
+              onAskAI={handleOpenAICoachWithJob} 
+            />
+          )}
+          {currentView === 'jobmatcher' && (
+            <JobMatcher resumeText={resumeText} />
+          )}
+          {currentView === 'aicoach' && (
+            <AICoach 
+              resumeText={resumeText} 
+              setResumeText={setResumeText} 
+              currentJobContext={currentJobContext} 
+              clearJobContext={() => setCurrentJobContext(null)} 
+            />
+          )}
+          {currentView === 'myladder' && (
+            <MyLadder session={session} />
+          )}
+          {currentView === 'careerprogression' && (
+            <CareerProgressionBoard session={session} />
+          )}
+        </>
       )}
-      {currentView === 'aicoach' && (
-        <AICoach 
-          resumeText={resumeText} 
-          setResumeText={setResumeText} 
-          currentJobContext={currentJobContext} 
-          clearJobContext={() => setCurrentJobContext(null)} 
-        />
-      )}
-      {currentView === 'myladder' && (
-        <MyLadder session={session} />
-      )}
-      {currentView === 'careerprogression' && (
-        <CareerProgressionBoard session={session} />
+
+      {/* ================= RECRUITER VIEWS ================= */}
+      {userRole === 'recruiter' && (
+        <>
+          {currentView === 'recruiter_dashboard' && (
+            <RecruiterDashboard
+              recruiterId={session.user.id}
+              recruiterName={session.user.user_metadata?.full_name || 'Recruiter'}
+              onCreateJob={() => setCurrentView('recruiter_create_job')}
+              onSelectJob={handleSelectRecruiterJob}
+              onViewAllJobs={() => setCurrentView('recruiter_jobs')}
+              onViewAnalytics={() => setCurrentView('recruiter_analytics')}
+            />
+          )}
+
+          {currentView === 'recruiter_jobs' && (
+            <RecruiterJobs
+              recruiterId={session.user.id}
+              onSelectJob={handleSelectRecruiterJob}
+              onCreateJob={() => setCurrentView('recruiter_create_job')}
+            />
+          )}
+
+          {currentView === 'recruiter_create_job' && (
+            <CreateJobForm
+              recruiterId={session.user.id}
+              onJobCreated={(job) => {
+                setActiveRecruiterJob(job);
+                setCurrentView('recruiter_ranker');
+              }}
+              onCancel={() => setCurrentView('recruiter_dashboard')}
+            />
+          )}
+
+          {currentView === 'recruiter_ranker' && (
+            <CandidateRanker
+              job={activeRecruiterJob || {
+                id: 'demo-job-ai-backend',
+                title: 'Senior AI Backend Engineer',
+                company: 'Apex AI Labs',
+                required_skills: ['Python', 'FastAPI', 'AWS', 'Docker', 'PostgreSQL', 'Kubernetes'],
+                preferred_skills: ['PyTorch', 'Vector Databases', 'LangChain', 'Redis'],
+                experience_required: '5+ years',
+                education_required: "Master's or Bachelor's in CS",
+                description: 'Seeking Senior AI Backend Engineer to build high-throughput ML pipelines and vector search.'
+              }}
+              recruiterId={session.user.id}
+              onBack={() => setCurrentView('recruiter_jobs')}
+            />
+          )}
+
+          {currentView === 'recruiter_analytics' && (
+            <RecruiterAnalytics
+              recruiterId={session.user.id}
+              onSelectJob={handleSelectRecruiterJob}
+            />
+          )}
+        </>
       )}
     </Layout>
   );

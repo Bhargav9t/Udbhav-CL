@@ -1,8 +1,41 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/auth';
+import { supabase, isSupabaseConfigured } from '../lib/auth';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, XCircle, Square, CheckSquare, GripVertical } from 'lucide-react';
+
+const SAMPLE_TASKS = [
+  {
+    id: 'task-1',
+    title: 'HackMIT 2026 Participation',
+    status: 'IN_PROGRESS',
+    completion_percentage: 60,
+    task_checklists: [
+      { id: 'chk-1', title: 'Register team on Devpost', is_completed: true },
+      { id: 'chk-2', title: 'Set up GitHub repository & CI/CD', is_completed: true },
+      { id: 'chk-3', title: 'Implement AI Coach Integration', is_completed: false }
+    ]
+  },
+  {
+    id: 'task-2',
+    title: 'Google SWE Summer 2026 Application',
+    status: 'OUTCOME_COMPLETE',
+    completion_percentage: 100,
+    task_checklists: [
+      { id: 'chk-4', title: 'Polish Resume with AI Coach', is_completed: true },
+      { id: 'chk-5', title: 'Complete Online Assessment', is_completed: true }
+    ]
+  },
+  {
+    id: 'task-3',
+    title: 'NSF REU Fellowship Proposal',
+    status: 'OUTCOME_FAILED',
+    completion_percentage: 100,
+    task_checklists: [
+      { id: 'chk-6', title: 'Submit Literature Review', is_completed: true }
+    ]
+  }
+];
 
 const COLUMNS = [
   { id: 'IN_PROGRESS', label: 'Participation' },
@@ -15,6 +48,11 @@ export default function CareerProgressionBoard({ session }) {
   const [loading, setLoading] = useState(true);
 
   const fetchTasks = async () => {
+    if (!isSupabaseConfigured) {
+      setTasks(SAMPLE_TASKS);
+      setLoading(false);
+      return;
+    }
     if (!session?.user?.id) return;
     try {
       const { data, error } = await supabase

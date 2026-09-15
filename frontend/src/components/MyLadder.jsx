@@ -1,9 +1,54 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from '../lib/auth';
+import { supabase, isSupabaseConfigured } from '../lib/auth';
 import { ExternalLink, Calendar, Building2, Sparkles, GripHorizontal } from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import LadderHeader from './LadderHeader';
 import AIGapAnalysis from './AIGapAnalysis';
+
+const SAMPLE_LADDER = [
+  {
+    id: 'ladder-1',
+    status: 'saved',
+    notes: 'Exciting hackathon to showcase ML and frontend projects',
+    opportunity_id: 'sample-1',
+    opportunities: {
+      id: 'sample-1',
+      title: 'HackMIT 2026',
+      organization: 'MIT',
+      category: 'Hackathon',
+      opportunity_link: 'https://hackmit.org',
+      deadline: 'Oct 15'
+    }
+  },
+  {
+    id: 'ladder-2',
+    status: 'applied',
+    notes: 'Submitted resume and referral link',
+    opportunity_id: 'sample-2',
+    opportunities: {
+      id: 'sample-2',
+      title: 'Software Engineering Intern (Summer 2026)',
+      organization: 'Google',
+      category: 'Internship',
+      opportunity_link: 'https://careers.google.com',
+      deadline: 'Rolling admissions'
+    }
+  },
+  {
+    id: 'ladder-3',
+    status: 'interviewing',
+    notes: 'Technical screen scheduled for next week',
+    opportunity_id: 'sample-4',
+    opportunities: {
+      id: 'sample-4',
+      title: 'Full Stack AI Engineer',
+      organization: 'Frontier AI Labs',
+      category: 'Job',
+      opportunity_link: 'https://careerladder.dev',
+      deadline: 'Immediate'
+    }
+  }
+];
 
 const COLUMNS = [
   { id: 'saved', label: 'Interested', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-300/50' },
@@ -21,6 +66,11 @@ export default function MyLadder({ session }) {
 
   // Fetch ladder items joined with opportunities
   const fetchLadder = async () => {
+    if (!isSupabaseConfigured) {
+      setLadderItems(SAMPLE_LADDER);
+      setLoading(false);
+      return;
+    }
     try {
       const { data, error } = await supabase
         .from('user_ladder')
