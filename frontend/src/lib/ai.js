@@ -3,25 +3,35 @@ import Groq from "groq-sdk";
 // Initialize Groq client
 const groq = new Groq({
   apiKey: import.meta.env.VITE_GROQ_API_KEY,
-  dangerouslyAllowBrowser: true, // Required for running SDK in browser
+  dangerouslyAllowBrowser: true,
 });
 
-const MODEL = "llama-3.1-8b-instant"; // Fast, good for basic analysis.
+// Groq model
+const MODEL = "groq/compound-mini";
 
 /**
- * Analyzes the user's resume against a list of opportunities to provide a personalized "why it matches" reasoning.
+ * Analyze resume against opportunities
  */
-export async function analyzeResumeAndOpportunities(resumeText, opportunities) {
-  if (!resumeText || !opportunities || opportunities.length === 0) return opportunities;
+export async function analyzeResumeAndOpportunities(
+  resumeText,
+  opportunities
+) {
+  if (!resumeText || !opportunities || opportunities.length === 0) {
+    return opportunities;
+  }
 
-  // We don't want to send 100 opportunities to the LLM at once. 
-  // Let's send the top 10 to get personalized reasons, or batch them.
   const opsToAnalyze = opportunities.slice(0, 10);
-  
+
   const prompt = `
-You are an expert career coach. You are given a user's resume and a list of job/hackathon opportunities.
-For each opportunity, write a single, short, punchy sentence explaining WHY this is a good match for the user based on their resume. If it's not a strong match, explain how it could help them grow.
-Do NOT use markdown. Start the sentence with an emoji.
+You are an expert career coach.
+
+Analyze the user's resume against the listed opportunities.
+
+For each opportunity:
+- Give one short, punchy sentence explaining why it matches.
+- If it is not a strong match, explain how it could help the user grow.
+- Start every sentence with an emoji.
+- Do not use markdown.
 
 Resume:
 """
@@ -29,18 +39,34 @@ ${resumeText}
 """
 
 Opportunities:
-${opsToAnalyze.map((op, i) => `[${i}] Title: ${op.title} | Org: ${op.organization} | Summary: ${op.summary}`).join('\n')}
+${opsToAnalyze
+  .map(
+    (op, i) =>
+      `[${i}] Title: ${op.title} | Organization: ${
+        op.organization
+      } | Summary: ${op.summary || ""}`
+  )
+  .join("\n")}
 
-Output format MUST be a valid JSON array of strings in the exact same order as the opportunities provided.
-Example: ["✨ Your Python skills make this backend role a perfect match!", "🚀 A great chance to learn React which complements your HTML knowledge.", ...]
+Return ONLY valid JSON in this format:
+
+{
+  "reasons": [
+    "✨ Your Python experience makes this opportunity a strong match.",
+    "🚀 This opportunity can help you develop your cloud skills."
+  ]
+}
+
+The reasons must be in the exact same order as the opportunities.
 `;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const response = await groq.chat.completions.create({
       messages: [
         {
           role: "system",
-          content: "You are a JSON-generating career coach. You only output valid JSON arrays of strings.",
+          content:
+            "You are a career coach that returns valid JSON only.",
         },
         {
           role: "user",
@@ -48,110 +74,151 @@ Example: ["✨ Your Python skills make this backend role a perfect match!", "�
         },
       ],
       model: MODEL,
-      response_format: { type: "json_object" }, // Wait, json_object requires the prompt to specify a JSON object, not array. Let's wrap it in an object.
+      response_format: {
+        type: "json_object",
+      },
     });
 
-    // Actually, response_format: "json_object" requires returning an object like { "reasons": [...] }
-    // Let's update the request
-    return await fallbackAnalyze(resumeText, opsToAnalyze, opportunities);
+    const content =
+      response.choices[0]?.message?.content || "{}";
+
+    const result = JSON.parse(content);
+    const reasons = result.reasons || [];
+
+    return opportunities.map((op, index) => {
+      if (index < reasons.length) {
+        return {
+          ...op,
+          aiMatchReason: reasons[index],
+        };
+      }
+
+      return op;
+    });
   } catch (error) {
-    console.error("Error analyzing opportunities:", error);
-    return opportunities; // return unmodified if error
+    console.error(
+      "Error analyzing opportunities:",
+      error
+    );
+
+    return opportunities;
   }
 }
 
-// Fixed function for JSON object format
-async function fallbackAnalyze(resumeText, opsToAnalyze, allOpportunities) {
-    const prompt = `
-You are an expert career coach. 
-Resume:
+/**
+ * Interactive AI Career Coach
+ */
+export async function chatWithCoach(
+  messages,
+  resumeText,
+  jobContext = null
+) {
+  let systemPrompt = `
+You are an expert and encouraging career coach named "Career Ladder AI".
+
+Your job is to help users:
+- Navigate their career
+- Find relevant opportunities
+- Identify skill gaps
+- Improve resumes
+- Prepare for interviews
+- Build practical career plans
+
+Be concise, practical, encouraging, and specific.
+Use markdown when useful.
+`;
+
+  // Resume information
+  if (resumeText) {
+    systemPrompt += `
+
+Here is the user's resume/profile:
+
 """
 ${resumeText}
 """
 
-Opportunities:
-${opsToAnalyze.map((op, i) => `[${i}] Title: ${op.title} | Org: ${op.organization}`).join('\n')}
-
-Output a JSON object with a single key "reasons" containing an array of short strings in the EXACT same order. Each string is a 1-sentence punchy explanation (starting with an emoji) of why the opportunity is a good match.
+Use this information to personalize your advice.
 `;
-    
-    try {
-        const chatCompletion = await groq.chat.completions.create({
-            messages: [{ role: "system", content: "You output JSON only." }, { role: "user", content: prompt }],
-            model: MODEL,
-            response_format: { type: "json_object" },
-        });
-
-        const responseObj = JSON.parse(chatCompletion.choices[0]?.message?.content || "{}");
-        const reasons = responseObj.reasons || [];
-
-        // Attach reasons back to the original array
-        return allOpportunities.map((op, index) => {
-            if (index < reasons.length) {
-                return { ...op, aiMatchReason: reasons[index] };
-            }
-            return op;
-        });
-
-    } catch (e) {
-        console.error("AI reasoning failed", e);
-        return allOpportunities;
-    }
-}
-
-/**
- * Handles the interactive chat with the AI Coach.
- */
-export async function chatWithCoach(messages, resumeText, jobContext = null) {
-  let systemPrompt = `You are an expert, encouraging career coach named 'Career Ladder AI'.
-Your goal is to help the user navigate their career, find opportunities, and identify skill gaps.
-Be concise, practical, and highly specific. Use markdown for formatting.`;
-
-  if (resumeText) {
-    systemPrompt += `\n\nHere is the user's resume/profile:\n"""\n${resumeText}\n"""\nUse this to personalize your advice.`;
   } else {
-    systemPrompt += `\n\nThe user has not provided a resume yet. Encourage them to paste it in the Resume tab for better advice.`;
+    systemPrompt += `
+
+The user has not provided a resume yet.
+Encourage them to paste their resume into the Resume/Profile section.
+`;
   }
 
+  // Job information
   if (jobContext) {
-    systemPrompt += `\n\nThe user is currently asking about this specific opportunity:
+    systemPrompt += `
+
+The user is currently interested in this opportunity:
+
 Title: ${jobContext.title}
 Organization: ${jobContext.organization}
 Category: ${jobContext.category}
-Focus your advice heavily on this opportunity. If they lack skills for it based on their resume, tell them exactly what they are missing and give 1-2 practical steps to attain those skills at a basic level.`;
+
+Focus your advice on this opportunity.
+
+If the user is missing skills:
+1. Clearly explain what they are missing.
+2. Give 1-2 practical steps to learn those skills.
+`;
   }
 
   const apiMessages = [
-    { role: "system", content: systemPrompt },
-    ...messages
+    {
+      role: "system",
+      content: systemPrompt,
+    },
+    ...messages,
   ];
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const response = await groq.chat.completions.create({
       messages: apiMessages,
-      model: "llama-3.3-70b-versatile", // Use larger model for complex coaching chat
+      model: MODEL,
     });
 
-    return chatCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't process that.";
+    return (
+      response.choices[0]?.message?.content ||
+      "I'm sorry, I couldn't process that."
+    );
   } catch (error) {
     console.error("Chat error:", error);
-    return "Oops! I encountered an error. Please check your API key or try again later.";
+
+    return "Oops! I encountered an error while contacting the AI Coach. Please try again.";
   }
 }
 
 /**
- * Analyzes skill gaps for a specific opportunity against the user's resume.
+ * Analyze skill gap
  */
-export async function analyzeSkillGap(resumeText, opportunity) {
-  if (!resumeText || !opportunity) return null;
+export async function analyzeSkillGap(
+  resumeText,
+  opportunity
+) {
+  if (!resumeText || !opportunity) {
+    return null;
+  }
 
   const prompt = `
 You are an expert technical recruiter and career coach.
-Analyze the following resume against the given opportunity.
-Output ONLY a JSON object with exactly these keys:
-- "matchPercentage" (integer between 0 and 100)
-- "missingSkills" (array of 1 to 3 short strings representing key skills the user lacks for this role)
-- "actionableTip" (a single short, encouraging sentence on what to do next to improve their chances)
+
+Analyze the user's resume against the opportunity.
+
+Return ONLY a valid JSON object with exactly these keys:
+
+{
+  "matchPercentage": 0,
+  "missingSkills": [],
+  "actionableTip": ""
+}
+
+Rules:
+- matchPercentage must be an integer from 0 to 100.
+- missingSkills must contain 1 to 3 important skills.
+- actionableTip must be one short and encouraging sentence.
 
 Resume:
 """
@@ -162,22 +229,38 @@ Opportunity:
 Title: ${opportunity.title}
 Organization: ${opportunity.organization}
 Category: ${opportunity.category}
-Summary: ${opportunity.summary || ''}
+Summary: ${opportunity.summary || ""}
 `;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
+    const response = await groq.chat.completions.create({
       messages: [
-        { role: "system", content: "You output JSON only." },
-        { role: "user", content: prompt }
+        {
+          role: "system",
+          content:
+            "You are a technical recruiter. Return valid JSON only.",
+        },
+        {
+          role: "user",
+          content: prompt,
+        },
       ],
       model: MODEL,
-      response_format: { type: "json_object" },
+      response_format: {
+        type: "json_object",
+      },
     });
 
-    return JSON.parse(chatCompletion.choices[0]?.message?.content || "{}");
+    const content =
+      response.choices[0]?.message?.content || "{}";
+
+    return JSON.parse(content);
   } catch (error) {
-    console.error("Error analyzing skill gap:", error);
+    console.error(
+      "Error analyzing skill gap:",
+      error
+    );
+
     return null;
   }
 }
