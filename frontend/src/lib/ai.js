@@ -1,6 +1,12 @@
 import Groq from "groq-sdk";
+import { analyzeSkillGapDetailed, validateSkillGapSchema } from "./skillGapService.js";
 
-const rawGroqKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GROQ_API_KEY) || "";
+export { analyzeSkillGapDetailed, validateSkillGapSchema };
+
+const rawGroqKey = 
+  (typeof import.meta !== 'undefined' && import.meta.env?.VITE_GROQ_API_KEY) || 
+  (typeof process !== 'undefined' && (process.env?.VITE_GROQ_API_KEY || process.env?.GROQ_API_KEY)) ||
+  "";
 
 export const isGroqConfigured = Boolean(
   rawGroqKey &&
@@ -78,10 +84,16 @@ export async function chatWithCoach(messages, resumeText, jobContext = null) {
 Your goal is to help the user navigate their career, find opportunities, and identify skill gaps.
 Be concise, practical, and highly specific. Use markdown for formatting.`;
 
-  if (resumeText) {
-    systemPrompt += `\n\nHere is the user's resume/profile:\n"""\n${resumeText}\n"""\nUse this to personalize your advice.`;
+  if (resumeText && resumeText.trim()) {
+    // Strip any raw PDF stream tags or binary signatures if present
+    let cleanResume = resumeText.replace(/%PDF-\d\.\d[\s\S]*?%%EOF/gi, '').trim();
+    // Cap to safe length (around 1,500-2,000 words max) so token limits are respected
+    if (cleanResume.length > 8000) {
+      cleanResume = cleanResume.slice(0, 8000) + "\n\n[... Resume condensed for context ...]";
+    }
+    systemPrompt += `\n\nHere is the user's resume/profile:\n"""\n${cleanResume}\n"""\nUse this to personalize your advice.`;
   } else {
-    systemPrompt += `\n\nThe user has not provided a resume yet. Encourage them to paste it in the Resume tab for better advice.`;
+    systemPrompt += `\n\nThe user has not provided a resume yet. Encourage them to upload or paste it on the left for personalized advice.`;
   }
 
   if (jobContext) {
@@ -100,53 +112,48 @@ Focus your advice heavily on this opportunity. If they lack skills for it based 
   try {
     const chatCompletion = await groq.chat.completions.create({
       messages: apiMessages,
-      model: REASONING_MODEL, // Advanced model for coaching chat
+      model: MODEL, // Use fast model with high TPM limit for chat
+      max_tokens: 1500,
     });
 
     return chatCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't process that.";
   } catch (error) {
-    console.error("Chat error:", error);
-    return "Oops! I encountered an error. Please check your API key or try again later.";
+    console.error("Chat error with primary model:", error);
+    try {
+      const fallbackCompletion = await groq.chat.completions.create({
+        messages: apiMessages,
+        model: REASONING_MODEL,
+        max_tokens: 1500,
+      });
+      return fallbackCompletion.choices[0]?.message?.content || "I'm sorry, I couldn't process that.";
+    } catch (fallbackError) {
+      console.error("Chat error with fallback model:", fallbackError);
+      return `Oops! I encountered an error: ${error.message || 'Connection or token limit issue'}. Please try again.`;
+    }
   }
 }
 
 /**
- * Analyzes skill gaps for a specific opportunity against the user's resume.
+ * Analyzes skill gaps for a specific opportunity against the user's resume using the strict structured AI engine.
  */
 export async function analyzeSkillGap(resumeText, opportunity) {
   if (!resumeText || !opportunity) return null;
 
-  const prompt = `
-You are an expert technical recruiter and career coach.
-Analyze the following resume against the given opportunity.
-Output ONLY a JSON object with exactly these keys:
-- "matchPercentage" (integer between 0 and 100)
-- "missingSkills" (array of 1 to 3 short strings representing key skills the user lacks for this role)
-- "actionableTip" (a single short, encouraging sentence on what to do next to improve their chances)
-
-Resume:
-"""
-${resumeText}
-"""
-
-Opportunity:
-Title: ${opportunity.title}
-Organization: ${opportunity.organization}
-Category: ${opportunity.category}
-Summary: ${opportunity.summary || ''}
-`;
+  const jobDescText = `Role: ${opportunity.title || 'Target Role'}
+Organization: ${opportunity.organization || 'Hiring Organization'}
+Category: ${opportunity.category || 'Technology'}
+Deadline / Location: ${opportunity.deadline || 'Flexible'}
+Description & Summary: ${opportunity.summary || opportunity.title || ''}`;
 
   try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: "You output JSON only." },
-        { role: "user", content: prompt }
-      ],
-      model: MODEL,
-      response_format: { type: "json_object" },
-    });
-
-    return JSON.parse(chatCompletion.choices[0]?.message?.content || "{}");
+    const detailed = await analyzeSkillGapDetailed(resumeText, jobDescText);
+    return {
+      ...detailed,
+      // Backward compatibility fields for legacy components
+      matchPercentage: detailed.match_score,
+      missingSkills: (detailed.missing_skills || []).map(s => typeof s === 'string' ? s : s.skill),
+      actionableTip: detailed.career_verdict?.next_step || detailed.match_summary
+    };
   } catch (error) {
     console.error("Error analyzing skill gap:", error);
     return null;
@@ -154,84 +161,21 @@ Summary: ${opportunity.summary || ''}
 }
 
 /**
- * Deep evaluation of a resume against a job description.
- * Parses skills/experience, identifies semantic matches, computes compatibility scores,
- * identifies missing skills, ranks fit, and provides a detailed score explanation.
+ * Deep, structured evaluation of a candidate resume against a job description.
+ * Adheres strictly to the 11-point schema with automatic repair/retry.
  */
 export async function evaluateResumeJobMatch(resumeText, jobDescription) {
   if (!resumeText || !jobDescription) return null;
-
-  const prompt = `
-You are an advanced AI Technical Recruiter & Skill Analyzer.
-Perform a comprehensive analysis comparing the provided candidate resume against the target job description.
-
-Analyze for direct skill overlap AND semantic skill relationships (e.g. PyTorch -> Deep Learning, PostgreSQL -> Relational DB / SQL, React -> Frontend Framework, AWS -> Cloud Infrastructure).
-
-Output ONLY a valid JSON object matching this exact schema:
-{
-  "overallMatchScore": integer (0-100),
-  "skillMatchScore": integer (0-100),
-  "experienceMatchScore": integer (0-100),
-  "domainMatchScore": integer (0-100),
-  "extractedResumeData": {
-    "candidateNameOrRole": "string",
-    "skills": ["string"],
-    "experienceYears": "string or number",
-    "keyDomains": ["string"]
-  },
-  "extractedJobData": {
-    "roleTitle": "string",
-    "requiredSkills": ["string"],
-    "preferredSkills": ["string"],
-    "experienceRequired": "string"
-  },
-  "directSkillMatches": ["string"],
-  "semanticSkillMatches": [
-    {
-      "candidateSkill": "string (skill on resume)",
-      "jobSkill": "string (requirement in JD)",
-      "relationship": "string (explanation of semantic equivalence or relationship)",
-      "confidenceScore": integer (0-100)
-    }
-  ],
-  "missingRequiredSkills": [
-    {
-      "skill": "string",
-      "impactLevel": "High" | "Medium" | "Low",
-      "recommendation": "string"
-    }
-  ],
-  "missingPreferredSkills": ["string"],
-  "scoreExplanation": "string (detailed 3-4 sentence breakdown explaining why this compatibility score was generated, covering strengths, semantic alignments, and gap impact)",
-  "actionableAdvice": ["string"]
-}
-
-Candidate Resume:
-"""
-${resumeText}
-"""
-
-Job Description:
-"""
-${jobDescription}
-"""
-`;
-
-  try {
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        { role: "system", content: "You are a JSON-generating expert talent assessment system. Output valid JSON only." },
-        { role: "user", content: prompt }
-      ],
-      model: REASONING_MODEL,
-      response_format: { type: "json_object" },
-    });
-
-    return JSON.parse(chatCompletion.choices[0]?.message?.content || "{}");
-  } catch (error) {
-    console.error("Error evaluating resume vs job:", error);
-    throw error;
-  }
+  
+  const detailed = await analyzeSkillGapDetailed(resumeText, jobDescription);
+  return {
+    ...detailed,
+    // Backward compatibility mappings if old callers access legacy keys
+    overallMatchScore: detailed.match_score,
+    scoreExplanation: detailed.match_summary,
+    directSkillMatches: (detailed.matched_skills || []).map(s => typeof s === 'string' ? s : s.skill),
+    actionableAdvice: (detailed.action_plan || []).map(a => typeof a === 'string' ? a : `${a.title}: ${a.description}`)
+  };
 }
 
 /**
