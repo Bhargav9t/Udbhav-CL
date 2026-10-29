@@ -16,8 +16,8 @@ const groq = new Groq({
   dangerouslyAllowBrowser: true, // Required for running SDK in browser
 });
 
-const MODEL = "llama-3.3-70b-versatile"; // Reliable model for general JSON analysis
-const REASONING_MODEL = "llama-3.3-70b-versatile"; // Advanced model for coaching and evaluation
+const MODEL = "openai/gpt-oss-120b"; // Verified high-throughput Groq model
+const REASONING_MODEL = "openai/gpt-oss-120b"; // Verified high-throughput Groq model
 
 /**
  * Analyzes the user's resume against a list of opportunities to provide a personalized "why it matches" reasoning.
@@ -42,7 +42,7 @@ ${resumeText}
 Opportunities:
 ${opsToAnalyze.map((op, i) => `[${i}] Title: ${op.title} | Org: ${op.organization}`).join('\n')}
 
-Output a JSON object with a single key "reasons" containing an array of short strings in the EXACT same order. Each string is a 1-sentence punchy explanation (starting with an emoji) of why the opportunity is a good match.
+Output a JSON object with a single key "reasons" containing an array of short strings in the EXACT same order. Each string is a 1-sentence punchy explanation (without emojis) of why the opportunity is a good match.
 `;
     try {
       const chatCompletion = await groq.chat.completions.create({
