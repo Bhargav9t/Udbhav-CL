@@ -19,7 +19,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://hackmit.org',
     deadline: 'Applications close Oct 15',
     summary: 'Join 1,000+ top undergraduate hackers from across the globe on MIT campus for a 36-hour weekend of hacking, hardware labs, and building world-changing applications.',
-    aiMatchReason: '✨ Perfect for strengthening your full-stack development velocity and collaborative team leadership!'
+    aiMatchReason: 'Perfect for strengthening your full-stack development velocity and collaborative team leadership!'
   },
   {
     id: 'sample-calhacks-12',
@@ -30,7 +30,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://calhacks.io',
     deadline: 'Applications close Nov 2',
     summary: 'The world\'s largest collegiate AI hackathon hosted in San Francisco. Graduate and undergraduate researchers build agentic workflows, multi-modal LLM applications, and decentralized infrastructure.',
-    aiMatchReason: '🚀 Ideal arena to showcase your LLM agents and distributed vector database prototypes.'
+    aiMatchReason: 'Ideal arena to showcase your LLM agents and distributed vector database prototypes.'
   },
   {
     id: 'sample-pennapps-xxvi',
@@ -41,7 +41,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://pennapps.com',
     deadline: 'Applications close Sept 20',
     summary: 'The original student hackathon focusing on high-throughput distributed systems, robotics, and biomedical machine learning for undergraduate engineers.',
-    aiMatchReason: '⚡ Direct match for your React frontend skills and cloud database deployment capabilities.'
+    aiMatchReason: 'Direct match for your React frontend skills and cloud database deployment capabilities.'
   },
   {
     id: 'sample-ai-frontiers-hack',
@@ -52,7 +52,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://careerladder.dev',
     deadline: 'Rolling admissions',
     summary: 'A global competitive hackathon for senior developers and professional engineers building autonomous enterprise agents and high-concurrency inference pipelines.',
-    aiMatchReason: '🔥 Matches your experience in scalable backend architecture and production microservices.'
+    aiMatchReason: 'Matches your experience in scalable backend architecture and production microservices.'
   },
 
   // --- INTERNSHIPS ---
@@ -65,7 +65,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://careers.google.com',
     deadline: 'Rolling admissions',
     summary: 'Build scalable distributed systems and solve complex algorithmic problems alongside industry-leading mentors using Python, Go, and Google Cloud Infrastructure. Open to undergraduate and master\'s students.',
-    aiMatchReason: '🎯 Strong match with your backend programming experience and data structures foundation.'
+    aiMatchReason: 'Strong match with your backend programming experience and data structures foundation.'
   },
   {
     id: 'sample-meta-fair-intern',
@@ -76,7 +76,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://metacareers.com',
     deadline: 'Deadline Dec 1',
     summary: 'Conduct fundamental artificial intelligence research at Fundamental AI Research (FAIR) in Menlo Park. Train massive foundation models and publish first-author papers at NeurIPS/ICLR. Graduate/PhD degree preferred.',
-    aiMatchReason: '🔬 High-impact opportunity to translate your PyTorch and transformer expertise into tier-1 research publications.'
+    aiMatchReason: 'High-impact opportunity to translate your PyTorch and transformer expertise into tier-1 research publications.'
   },
   {
     id: 'sample-citadel-quant-intern',
@@ -87,7 +87,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://citadelsecurities.com/careers',
     deadline: 'Applications close Nov 15',
     summary: 'Design and optimize ultra-low-latency market connectivity microservices and statistical arbitrage algorithms using C++20 and Python. Open to undergraduate math and CS students.',
-    aiMatchReason: '📈 Exceptional fit for your high-performance algorithmic reasoning and mathematical foundation.'
+    aiMatchReason: 'Exceptional fit for your high-performance algorithmic reasoning and mathematical foundation.'
   },
   {
     id: 'sample-stripe-intern',
@@ -98,7 +98,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://stripe.com/jobs',
     deadline: 'Rolling admissions',
     summary: 'Build developer-first payment infrastructure, high-reliability financial APIs, and delightful React UI dashboards used by millions of businesses globally. Designed for undergraduate students.',
-    aiMatchReason: '💳 Perfect alignment with your React, TypeScript, and modern API architecture background.'
+    aiMatchReason: 'Perfect alignment with your React, TypeScript, and modern API architecture background.'
   },
   {
     id: 'sample-tesla-robotics-intern',
@@ -109,7 +109,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://tesla.com/careers',
     deadline: 'Rolling admissions',
     summary: 'Develop real-time perception algorithms and neural network inference pipelines on custom hardware for Tesla Full Self-Driving and Optimus robotics.',
-    aiMatchReason: '🤖 Direct bridge between your deep learning knowledge and low-latency production execution.'
+    aiMatchReason: 'Direct bridge between your deep learning knowledge and low-latency production execution.'
   },
   {
     id: 'sample-palantir-fdse-intern',
@@ -120,7 +120,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://palantir.com/careers',
     deadline: 'Oct 31',
     summary: 'Deploy mission-critical data operating systems to defense, healthcare, and humanitarian partners globally. Work with distributed databases, TypeScript, and Python.',
-    aiMatchReason: '🛡️ Exciting match for your distributed data pipeline skills and rapid problem-solving acumen.'
+    aiMatchReason: 'Exciting match for your distributed data pipeline skills and rapid problem-solving acumen.'
   },
 
   // --- JOBS ---
@@ -133,7 +133,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://openai.com/careers',
     deadline: 'Rolling admissions',
     summary: 'Architect distributed GPU clusters, high-throughput model inference endpoints, and scalable vector store infrastructure powering next-generation frontier intelligence.',
-    aiMatchReason: '🔥 Elite alignment with your FastAPI microservices, pgvector integration, and cloud-native Kubernetes expertise!'
+    aiMatchReason: 'Elite alignment with your FastAPI microservices, pgvector integration, and cloud-native Kubernetes expertise!'
   },
   {
     id: 'sample-anthropic-backend-eng',
@@ -144,7 +144,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://anthropic.com/careers',
     deadline: 'Rolling admissions',
     summary: 'Scale Claude\'s reliable backend infrastructure, automated evaluation harness, and fault-tolerant multi-region services handling billions of monthly tokens with strict safety constraints.',
-    aiMatchReason: '⚡ Direct match for your Python backend scalability, container orchestration, and asynchronous service design.'
+    aiMatchReason: 'Direct match for your Python backend scalability, container orchestration, and asynchronous service design.'
   },
   {
     id: 'sample-vercel-frontend-eng',
@@ -155,7 +155,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://vercel.com/careers',
     deadline: 'Rolling admissions',
     summary: 'Shape the future of the web by innovating on Next.js, React Server Components, and edge rendering pipelines used by millions of developers worldwide.',
-    aiMatchReason: '🌐 Direct match for your React expertise, modern frontend architecture, and performance optimization background.'
+    aiMatchReason: 'Direct match for your React expertise, modern frontend architecture, and performance optimization background.'
   },
   {
     id: 'sample-databricks-lakehouse',
@@ -166,7 +166,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://databricks.com/careers',
     deadline: 'Rolling admissions',
     summary: 'Build high-performance distributed columnar query execution engines, vector index caching, and delta lake storage formats using C++ and Go.',
-    aiMatchReason: '💾 Fits your relational database background and aspirations toward distributed database internals.'
+    aiMatchReason: 'Fits your relational database background and aspirations toward distributed database internals.'
   },
   {
     id: 'sample-snowflake-backend',
@@ -177,7 +177,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://snowflake.com/careers',
     deadline: 'Rolling admissions',
     summary: 'Design multi-tenant cloud data warehouse primitives, distributed consensus protocols, and query optimization algorithms handling exabytes of analytical queries.',
-    aiMatchReason: '📊 Powerful pathway to deepen your database indexing, query planning, and cloud storage systems engineering.'
+    aiMatchReason: 'Powerful pathway to deepen your database indexing, query planning, and cloud storage systems engineering.'
   },
 
   // --- RESEARCH ---
@@ -190,7 +190,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://deepmind.google',
     deadline: 'Dec 15',
     summary: 'A 2-year dedicated research residency in London or Mountain View focusing on multimodal reasoning, reinforcement learning from human feedback (RLHF), and agentic coordination.',
-    aiMatchReason: '🧠 World-class opportunity to conduct pure foundational AI research with massive compute clusters.'
+    aiMatchReason: 'World-class opportunity to conduct pure foundational AI research with massive compute clusters.'
   },
   {
     id: 'sample-stanford-hai-fellow',
@@ -201,7 +201,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://hai.stanford.edu',
     deadline: 'Jan 10',
     summary: 'Investigate safety, alignment, and societal impacts of generative AI models. Collaborate across Stanford Computer Science, Law, and Medicine with endowed research grants.',
-    aiMatchReason: '🏛️ Prestigious fellowship uniting machine learning systems with ethical, scalable real-world application.'
+    aiMatchReason: 'Prestigious fellowship uniting machine learning systems with ethical, scalable real-world application.'
   },
   {
     id: 'sample-mit-climate-fellow',
@@ -212,7 +212,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://mit.edu',
     deadline: 'Jan 15',
     summary: 'Apply physics-informed neural operators and massive planetary climate satellite datasets to forecast extreme global climate disruptions. Graduate and PhD fellows receive full stipend and compute access.',
-    aiMatchReason: '🌍 High-impact research applying deep learning models to critical ecological and planetary challenges.'
+    aiMatchReason: 'High-impact research applying deep learning models to critical ecological and planetary challenges.'
   },
   {
     id: 'sample-ibm-quantum-scholar',
@@ -223,7 +223,7 @@ export const SAMPLE_OPPORTUNITIES = [
     opportunity_link: 'https://ibm.com/quantum',
     deadline: 'Rolling',
     summary: 'Formulate hybrid quantum-classical algorithms, error mitigation protocols, and quantum machine learning circuits using Qiskit on real superconducting quantum hardware.',
-    aiMatchReason: '⚛️ Groundbreaking exploration into the intersection of quantum information theory and modern computing.'
+    aiMatchReason: 'Groundbreaking exploration into the intersection of quantum information theory and modern computing.'
   }
 ];
 
@@ -493,7 +493,7 @@ export default function Dashboard({ resumeText, setResumeText, onAskAI, onNaviga
                   key={idx}
                   className="px-2.5 py-1 bg-white text-black border-2 border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]"
                 >
-                  ✓ {sk}
+                  {sk}
                 </span>
               ))}
               {profile.allSkills.length > 10 && (

@@ -306,7 +306,7 @@ export default function AuthForm({ onSuccess, onEnterDemo, isSupabaseConfigured 
                       }`}
                   >
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-sm">🎯</span>
+                      <Target className="w-3.5 h-3.5 stroke-[2.5]" />
                       <span className="font-black text-xs uppercase">Job Seeker</span>
                     </div>
                     <p className="text-[10px] text-black/70 font-bold leading-tight">
@@ -323,7 +323,7 @@ export default function AuthForm({ onSuccess, onEnterDemo, isSupabaseConfigured 
                       }`}
                   >
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-sm">🏢</span>
+                      <Briefcase className="w-3.5 h-3.5 stroke-[2.5]" />
                       <span className="font-black text-xs uppercase">Recruiter</span>
                     </div>
                     <p className="text-[10px] text-black/70 font-bold leading-tight">
@@ -430,7 +430,7 @@ export default function AuthForm({ onSuccess, onEnterDemo, isSupabaseConfigured 
                 onClick={() => onEnterDemo('job_seeker')}
                 className="py-2.5 px-3 bg-[#BAE6FD] hover:bg-black hover:text-[#BAE6FD] text-black border-2 border-black text-[11px] font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center justify-center gap-1"
               >
-                <span>🎯 Seeker Demo</span>
+                <span>Seeker Demo</span>
               </button>
 
               <button
@@ -438,7 +438,7 @@ export default function AuthForm({ onSuccess, onEnterDemo, isSupabaseConfigured 
                 onClick={() => onEnterDemo('recruiter')}
                 className="py-2.5 px-3 bg-[#93C5FD] hover:bg-black hover:text-[#93C5FD] text-black border-2 border-black text-[11px] font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center justify-center gap-1"
               >
-                <span>🏢 Recruiter Demo</span>
+                <span>Recruiter Demo</span>
               </button>
             </div>
             <p className="text-[10px] font-bold text-black/60 text-center">

@@ -70,17 +70,17 @@ Output a JSON object with a single key "reasons" containing an array of short st
   return allOpportunities.map((op) => {
     if (op.aiMatchReason) return op;
 
-    let reason = "⚡ Strong alignment with your foundational technical capabilities.";
+    let reason = "Strong alignment with your foundational technical capabilities.";
     if (op.category === 'Hackathon') {
-      reason = "✨ Great showcase to build live prototypes and demonstrate rapid execution with your tech stack!";
+      reason = "Great showcase to build live prototypes and demonstrate rapid execution with your tech stack!";
     } else if (op.category === 'Internship') {
       reason = resumeLower.includes('python') || resumeLower.includes('react')
-        ? "🎯 Highly relevant to your software engineering coursework and project portfolio."
-        : "🚀 Excellent bridge to gain production engineering mentorship.";
+        ? "Highly relevant to your software engineering coursework and project portfolio."
+        : "Excellent bridge to gain production engineering mentorship.";
     } else if (op.category === 'Research') {
-      reason = "🔬 Deepens your algorithmic research depth and prepares you for premier graduate/fellowship programs.";
+      reason = "Deepens your algorithmic research depth and prepares you for premier graduate/fellowship programs.";
     } else if (op.category === 'Job') {
-      reason = "🔥 Direct match for your full-stack engineering skills and scalable architecture experience.";
+      reason = "Direct match for your full-stack engineering skills and scalable architecture experience.";
     }
     return { ...op, aiMatchReason: reason };
   });
@@ -146,7 +146,7 @@ Focus your advice heavily on this opportunity. If they lack skills for it based 
   }
 
   if (lastUserMessage.includes('resume') || lastUserMessage.includes('review') || lastUserMessage.includes('improve')) {
-    return `### Career Coach Resume Review 📋
+    return `### Career Coach Resume Review
 
 Here are 3 high-impact recommendations to elevate your profile:
 
@@ -159,14 +159,14 @@ Here are 3 high-impact recommendations to elevate your profile:
   }
 
   if (lastUserMessage.includes('interview') || lastUserMessage.includes('prepare')) {
-    return `### Interview Mastery Strategy 🎯
+    return `### Interview Mastery Strategy
 
 - **Technical Coding**: Focus on Data Structures (Hash Maps, Trees, Graphs) and time/space complexity optimization.
 - **System Design**: Practice breaking down high-throughput systems (Rate limiters, Vector search indexing, Notification queues).
 - **Behavioral Questions**: Prepare 3 core stories illustrating leadership, resolving technical disagreement, and recovering from production incidents.`;
   }
 
-  return `### AI Career Coach Guidance 💡
+  return `### AI Career Coach Guidance
 
 I reviewed your profile. Here is your personalized action plan:
 - **Target Opportunities**: Check out the **Personalized Feed** and filter by your current career stage.

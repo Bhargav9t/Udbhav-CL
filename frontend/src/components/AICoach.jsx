@@ -8,10 +8,10 @@ import { chatWithCoach } from '../lib/ai';
 import { extractResumeProfile } from '../lib/skillExtractor';
 
 const STARTER_PROMPTS = [
-  "🎯 How should I prepare for a Google L5 Systems Engineer interview?",
-  "⚡ What are my 3 biggest skill gaps based on my resume?",
-  "📄 How can I rewrite my work experience to sound more senior?",
-  "🚀 Suggest a 30-day learning roadmap for distributed systems."
+  "How should I prepare for a Google L5 Systems Engineer interview?",
+  "What are my 3 biggest skill gaps based on my resume?",
+  "How can I rewrite my work experience to sound more senior?",
+  "Suggest a 30-day learning roadmap for distributed systems."
 ];
 
 export default function AICoach({ resumeText, setResumeText, currentJobContext, clearJobContext }) {

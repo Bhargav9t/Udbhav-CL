@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Code, Heart, MapPin, ExternalLink, Bot, Check } from 'lucide-react';
+import { Code, Heart, MapPin, ExternalLink, Bot, Check, Building2 } from 'lucide-react';
 import { supabase } from '../lib/auth';
 import { saveOpportunityToLadder } from '../lib/ladderService';
 
@@ -78,7 +78,7 @@ export default function OpportunityCard({ opportunity, onAskAI }) {
                 ? 'bg-[#BAE6FD] text-black' 
                 : 'bg-white text-black'
             }`}>
-              ⚡ {matchScore}% MATCH
+              {matchScore}% MATCH
             </span>
           )}
         </div>
@@ -91,7 +91,7 @@ export default function OpportunityCard({ opportunity, onAskAI }) {
           <div className="flex flex-wrap gap-1.5 mb-3">
             {matchingSkills.slice(0, 3).map((sk, idx) => (
               <span key={idx} className="text-[10px] font-black uppercase bg-[#F0F9FF] text-black px-2 py-0.5 border border-black shadow-[1px_1px_0px_0px_#000]">
-                ✓ {sk}
+                {sk}
               </span>
             ))}
             {matchingSkills.length > 3 && (
@@ -104,14 +104,15 @@ export default function OpportunityCard({ opportunity, onAskAI }) {
 
         {aiMatchReason && (
           <div className="text-xs font-bold text-black bg-[#E0F2FE] border-2 border-black p-3 mb-4 w-full shadow-[3px_3px_0px_0px_#000] leading-relaxed">
-            <span className="font-black uppercase tracking-wider block mb-1 text-[#0369A1]">⚡ AI Match Note:</span>
+            <span className="font-black uppercase tracking-wider block mb-1 text-[#0369A1]">AI Match Note:</span>
             {aiMatchReason}
           </div>
         )}
 
         <div className="flex flex-col gap-1.5 mt-auto w-full pt-2">
-          <p className="text-sm font-black text-black/80 truncate">
-            🏢 {organization}
+          <p className="text-sm font-black text-black/80 truncate flex items-center gap-1">
+            <Building2 className="w-3.5 h-3.5 stroke-black shrink-0" />
+            <span className="truncate">{organization}</span>
           </p>
           <div className="flex items-center text-black/70 text-xs font-bold">
             <MapPin className="w-4 h-4 mr-1.5 shrink-0 stroke-black" />

@@ -73,7 +73,13 @@ export default function Layout({
                 : 'bg-[#BAE6FD] text-black'
             }`}>
               <div className="flex items-center gap-2.5">
-                <span className="text-xl">{isRecruiter ? '🏢' : '🎯'}</span>
+                <div className="w-7 h-7 bg-black flex items-center justify-center border border-black shadow-[1px_1px_0px_0px_#000]">
+                  {isRecruiter ? (
+                    <Briefcase className="w-4 h-4 text-[#C7D2FE] stroke-[2.5]" />
+                  ) : (
+                    <Target className="w-4 h-4 text-[#7DD3FC] stroke-[2.5]" />
+                  )}
+                </div>
                 <div>
                   <span className="text-[10px] uppercase font-black tracking-widest text-black/70 block leading-none">Role</span>
                   <span className="text-xs font-black uppercase tracking-wide leading-tight">
@@ -97,7 +103,7 @@ export default function Layout({
           {/* Navigation Section */}
           <div className="px-4 py-4">
             <h3 className="text-xs font-black text-black/60 tracking-widest uppercase mb-3 px-2">
-              {isRecruiter ? '⚡ Recruiter Portal' : '⚡ Job Seeker Menu'}
+              {isRecruiter ? 'Recruiter Portal' : 'Job Seeker Menu'}
             </h3>
             
             <nav className="space-y-2">

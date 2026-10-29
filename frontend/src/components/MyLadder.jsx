@@ -70,7 +70,7 @@ export default function MyLadder({ session, onNavigate }) {
     try {
       await updateLadderItemStatus(draggableId, newStatus);
       if (newStatus === 'completed') {
-        setCelebrationToast('🏆 Moved to Offers & Wins! +150 XP earned!');
+        setCelebrationToast('Moved to Offers & Wins! +150 XP earned!');
         setTimeout(() => setCelebrationToast(''), 4000);
       }
     } catch (err) {
@@ -83,7 +83,7 @@ export default function MyLadder({ session, onNavigate }) {
     try {
       await updateLadderItemStatus(item.id, targetStatus);
       setLadderItems(prev => prev.map(i => i.id === item.id ? { ...i, status: targetStatus } : i));
-      setCelebrationToast(`🎯 ${item.opportunities?.title || 'Role'} advanced to ${targetStatus}! ${xpLabel}`);
+      setCelebrationToast(`${item.opportunities?.title || 'Role'} advanced to ${targetStatus}! ${xpLabel}`);
       setTimeout(() => setCelebrationToast(''), 4000);
     } catch (err) {
       console.error('Error advancing status:', err);
@@ -137,7 +137,7 @@ export default function MyLadder({ session, onNavigate }) {
                 <span className={`text-[10px] font-black text-black px-2 py-0.5 border border-black uppercase tracking-wider shadow-[1px_1px_0px_0px_#000] ${
                   isOffer ? 'bg-[#86EFAC]' : 'bg-[#BAE6FD]'
                 }`}>
-                  {isOffer ? '🏆 Win / Offer' : opp.category}
+                  {isOffer ? 'Win / Offer' : opp.category}
                 </span>
                 {resumeText && (
                   <span className="text-[10px] font-black text-black bg-[#93C5FD] px-1.5 py-0.5 border border-black flex items-center gap-1 uppercase tracking-wider shadow-[1px_1px_0px_0px_#000]">
@@ -226,7 +226,7 @@ export default function MyLadder({ session, onNavigate }) {
 
               {item.status === 'completed' && (
                 <span className="w-full text-[10px] font-black uppercase py-1 bg-emerald-100 text-emerald-800 border border-emerald-400 text-center block">
-                  ✓ Milestone Achieved
+                  Milestone Achieved
                 </span>
               )}
             </div>

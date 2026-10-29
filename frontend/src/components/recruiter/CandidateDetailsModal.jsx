@@ -256,7 +256,7 @@ export default function CandidateDetailsModal({
               <ul className="space-y-2">
                 {strengths.map((str, i) => (
                   <li key={i} className="text-xs text-black font-bold flex items-start gap-2">
-                    <span className="text-black font-black mt-0.5">✓</span>
+                    <span className="w-1.5 h-1.5 bg-black mt-1.5 shrink-0 inline-block"></span>
                     <span>{str}</span>
                   </li>
                 ))}

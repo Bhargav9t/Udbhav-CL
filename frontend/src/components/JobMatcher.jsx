@@ -97,7 +97,7 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
     } else {
       setCompletedNodes(prev => [...prev, node.id]);
       setUserXp(prev => prev + node.xp);
-      setCelebrationToast(`🎉 Completed "${node.title}"! +${node.xp} XP earned!`);
+      setCelebrationToast(`Completed "${node.title}"! +${node.xp} XP earned!`);
       setTimeout(() => setCelebrationToast(''), 3500);
     }
     setActiveNodeModal(null);
@@ -189,7 +189,7 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
                   <div className="flex flex-wrap gap-1.5">
                     {profile.categorizedSkills.languages.map((sk, idx) => (
                       <span key={idx} className="px-2.5 py-1 bg-[#E0F2FE] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
-                        ✓ {sk}
+                        {sk}
                       </span>
                     ))}
                   </div>
@@ -205,7 +205,7 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
                   <div className="flex flex-wrap gap-1.5">
                     {profile.categorizedSkills.frameworks.map((sk, idx) => (
                       <span key={idx} className="px-2.5 py-1 bg-[#BAE6FD] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
-                        ✓ {sk}
+                        {sk}
                       </span>
                     ))}
                   </div>
@@ -221,7 +221,7 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
                   <div className="flex flex-wrap gap-1.5">
                     {profile.categorizedSkills.cloudDevOps.map((sk, idx) => (
                       <span key={idx} className="px-2.5 py-1 bg-[#93C5FD] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
-                        ✓ {sk}
+                        {sk}
                       </span>
                     ))}
                   </div>
@@ -237,7 +237,7 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
                   <div className="flex flex-wrap gap-1.5">
                     {profile.categorizedSkills.databases.map((sk, idx) => (
                       <span key={idx} className="px-2.5 py-1 bg-[#E0F2FE] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
-                        ✓ {sk}
+                        {sk}
                       </span>
                     ))}
                   </div>
@@ -282,7 +282,7 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
           </div>
 
           <div className="text-[11px] font-bold text-black/60 pt-2 border-t-2 border-black">
-            💡 Extracted automatically from your active resume. Upload a new resume in the main feed to update this skill list.
+            Extracted automatically from your active resume. Upload a new resume in the main feed to update this skill list.
           </div>
         </div>
 
@@ -330,7 +330,7 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
                         : 'bg-white text-black hover:bg-[#F0F9FF] shadow-[1px_1px_0px_0px_#000]'
                     }`}
                   >
-                    🏢 {preset.company}
+                    {preset.company}
                   </button>
                 ))}
               </div>
@@ -409,7 +409,7 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
                 <Target className="w-3.5 h-3.5" /> Target Evaluation: {roadmap.targetJob.company}
               </div>
               <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-black">
-                {roadmap.matchScore >= 80 ? '🔥 Highly Competitive Candidate' : '✨ Strong Potential with Clear Gaps'}
+                {roadmap.matchScore >= 80 ? 'Highly Competitive Candidate' : 'Strong Potential with Clear Gaps'}
               </h2>
               <p className="text-xs sm:text-sm font-bold text-black/80 max-w-2xl leading-relaxed">
                 Matches {roadmap.matchedSkills.length} core competencies for the {roadmap.targetJob.role} role at {roadmap.targetJob.company}. 

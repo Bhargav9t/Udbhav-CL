@@ -168,9 +168,9 @@ export function calculateOpportunityMatch(resumeText, opportunity) {
 
   let matchReason = `Matches your background in ${matched.slice(0, 3).join(', ') || 'software engineering'}.`;
   if (matchScore >= 88) {
-    matchReason = `🔥 Top Match: Direct alignment with your ${matched.slice(0, 3).join(', ')} expertise!`;
+    matchReason = `Top Match: Direct alignment with your ${matched.slice(0, 3).join(', ')} expertise!`;
   } else if (matchScore >= 75) {
-    matchReason = `✨ Strong Match: Great expansion for your ${matched.slice(0, 2).join(' & ') || 'technical foundation'}.`;
+    matchReason = `Strong Match: Great expansion for your ${matched.slice(0, 2).join(' & ') || 'technical foundation'}.`;
   }
 
   return {
