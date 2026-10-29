@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback, useLayoutEffect } from 'react';
 import { 
   Sparkles, CheckCircle2, AlertTriangle, ArrowRight, Brain, 
   Briefcase, RefreshCw, FileText, Zap, ShieldAlert, BookOpen,
@@ -10,6 +10,177 @@ import {
   TARGET_JOB_PRESETS, 
   generateDuolingoRoadmap 
 } from '../lib/skillExtractor';
+
+/**
+ * Winding Duolingo Path Component
+ * Calculates smooth cubic Bézier S-curves passing directly through node button centers
+ */
+function DuolingoUnitPath({ unit, completedNodes, onNodeClick }) {
+  const containerRef = useRef(null);
+  const buttonRefs = useRef([]);
+  const [svgPath, setSvgPath] = useState('');
+
+  const computePath = useCallback(() => {
+    if (!containerRef.current) return;
+    const containerRect = containerRef.current.getBoundingClientRect();
+    if (containerRect.width === 0 || containerRect.height === 0) return;
+
+    const points = [];
+    unit.nodes.forEach((_, idx) => {
+      const el = buttonRefs.current[idx];
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2 - containerRect.left;
+        const cy = rect.top + rect.height / 2 - containerRect.top;
+        points.push({ x: cx, y: cy });
+      }
+    });
+
+    if (points.length === 0) return;
+
+    const centerX = containerRect.width / 2;
+    const first = points[0];
+    const last = points[points.length - 1];
+
+    // Build smooth S-curve starting from top center
+    let d = `M ${centerX} 0`;
+    const topDy = first.y;
+    d += ` C ${centerX} ${topDy * 0.4}, ${first.x} ${topDy * 0.6}, ${first.x} ${first.y}`;
+
+    // Connect consecutive nodes with smooth S-curves
+    for (let i = 0; i < points.length - 1; i++) {
+      const p1 = points[i];
+      const p2 = points[i + 1];
+      const dy = p2.y - p1.y;
+      const cp1x = p1.x;
+      const cp1y = p1.y + dy * 0.52;
+      const cp2x = p2.x;
+      const cp2y = p2.y - dy * 0.52;
+      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+    }
+
+    // Smooth exit curve out from last node to bottom center
+    const bottomY = containerRect.height;
+    const exitDy = bottomY - last.y;
+    d += ` C ${last.x} ${last.y + exitDy * 0.4}, ${centerX} ${last.y + exitDy * 0.6}, ${centerX} ${bottomY}`;
+
+    setSvgPath(d);
+  }, [unit.nodes]);
+
+  useLayoutEffect(() => {
+    computePath();
+  }, [computePath]);
+
+  useEffect(() => {
+    const handleResize = () => computePath();
+    window.addEventListener('resize', handleResize);
+
+    let ro = null;
+    if (typeof ResizeObserver !== 'undefined' && containerRef.current) {
+      ro = new ResizeObserver(() => computePath());
+      ro.observe(containerRef.current);
+    }
+
+    const t1 = setTimeout(computePath, 50);
+    const t2 = setTimeout(computePath, 250);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (ro) ro.disconnect();
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [computePath]);
+
+  return (
+    <div ref={containerRef} className="flex flex-col items-center space-y-10 py-6 relative w-full overflow-visible">
+      {/* SVG S-Curve Path connecting through all nodes */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-visible" aria-hidden="true">
+        {svgPath && (
+          <>
+            {/* Brutalist Shadow Path */}
+            <path
+              d={svgPath}
+              fill="none"
+              stroke="#000000"
+              strokeWidth="6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="opacity-20"
+              transform="translate(2, 2)"
+            />
+            {/* Primary S-Shape Dashed Path */}
+            <path
+              d={svgPath}
+              fill="none"
+              stroke="#000000"
+              strokeWidth="4"
+              strokeDasharray="10 8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </>
+        )}
+      </svg>
+
+      {unit.nodes.map((node, nodeIdx) => {
+        const isCompleted = completedNodes.includes(node.id);
+        const isCurrent = !isCompleted && (nodeIdx === 0 || completedNodes.includes(unit.nodes[nodeIdx - 1]?.id));
+
+        // Staggered S-curve offsets: Center -> Left -> Right
+        const offsetClass = [
+          'translate-x-0',
+          '-translate-x-16 sm:-translate-x-28',
+          'translate-x-16 sm:translate-x-28'
+        ][nodeIdx % 3];
+
+        return (
+          <div
+            key={node.id}
+            className={`flex flex-col items-center z-10 relative transition-transform ${offsetClass}`}
+          >
+            {/* Stepping Stone Node Button */}
+            <button
+              ref={(el) => (buttonRefs.current[nodeIdx] = el)}
+              type="button"
+              onClick={() => onNodeClick(node)}
+              className={`w-20 h-20 rounded-full border-4 border-black flex flex-col items-center justify-center transition-all cursor-pointer relative group ${
+                isCompleted
+                  ? 'bg-[#86EFAC] text-black shadow-[4px_4px_0px_0px_#000] hover:scale-105 active:translate-y-1'
+                  : isCurrent
+                  ? 'bg-[#7DD3FC] text-black shadow-[6px_6px_0px_0px_#000] scale-110 animate-bounce active:translate-y-1'
+                  : 'bg-[#E2E8F0] text-black/40 shadow-[3px_3px_0px_0px_#000] hover:scale-100'
+              }`}
+            >
+              {isCompleted ? (
+                <Check className="w-8 h-8 stroke-[3.5] text-black" />
+              ) : isCurrent ? (
+                <Star className="w-8 h-8 text-black fill-black" />
+              ) : (
+                <Lock className="w-6 h-6 text-black/40" />
+              )}
+
+              {/* Node XP indicator pill */}
+              <span className="absolute -bottom-2 px-2 py-0.5 bg-black text-[#7DD3FC] border border-black text-[9px] font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                +{node.xp} XP
+              </span>
+            </button>
+
+            {/* Node Title & Subtitle Badge */}
+            <div className="text-center mt-3 max-w-[200px] bg-white border-2 border-black p-2 shadow-[2px_2px_0px_0px_#000] z-10">
+              <span className="text-xs font-black uppercase text-black block leading-tight">
+                {node.title}
+              </span>
+              <span className="text-[10px] font-bold text-black/70 truncate block mt-0.5">
+                {node.subtitle}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function JobMatcher({ resumeText: initialResumeText }) {
   const [resumeText, setResumeText] = useState(initialResumeText || '');
@@ -622,67 +793,12 @@ export default function JobMatcher({ resumeText: initialResumeText }) {
                     </p>
                   </div>
 
-                  {/* Winding Stepping Stone Nodes */}
-                  <div className="flex flex-col items-center space-y-8 py-4 relative">
-                    
-                    {/* Connecting dotted centerline */}
-                    <div className="absolute top-4 bottom-4 w-1 border-r-2 border-dashed border-black/40 z-0"></div>
-
-                    {unit.nodes.map((node, nodeIdx) => {
-                      const isCompleted = completedNodes.includes(node.id);
-                      const isCurrent = !isCompleted && (nodeIdx === 0 || completedNodes.includes(unit.nodes[nodeIdx - 1]?.id));
-
-                      // Winding offset pattern: center -> left -> right -> center
-                      const offsetClasses = [
-                        'self-center',
-                        'self-start ml-4 sm:ml-12',
-                        'self-end mr-4 sm:mr-12'
-                      ][nodeIdx % 3];
-
-                      return (
-                        <div key={node.id} className={`flex flex-col items-center z-10 ${offsetClasses}`}>
-                          
-                          {/* Stepping Stone Node Button */}
-                          <button
-                            type="button"
-                            onClick={() => setActiveNodeModal(node)}
-                            className={`w-20 h-20 rounded-full border-4 border-black flex flex-col items-center justify-center transition-all cursor-pointer relative group ${
-                              isCompleted
-                                ? 'bg-[#86EFAC] text-black shadow-[4px_4px_0px_0px_#000] hover:scale-105 active:translate-y-1'
-                                : isCurrent
-                                ? 'bg-[#7DD3FC] text-black shadow-[6px_6px_0px_0px_#000] scale-110 animate-bounce active:translate-y-1'
-                                : 'bg-[#E2E8F0] text-black/40 shadow-[3px_3px_0px_0px_#000] hover:scale-100'
-                            }`}
-                          >
-                            {isCompleted ? (
-                              <Check className="w-8 h-8 stroke-[3.5] text-black" />
-                            ) : isCurrent ? (
-                              <Star className="w-8 h-8 text-black fill-black" />
-                            ) : (
-                              <Lock className="w-6 h-6 text-black/40" />
-                            )}
-
-                            {/* Node XP indicator pill */}
-                            <span className="absolute -bottom-2 px-2 py-0.5 bg-black text-[#7DD3FC] border border-black text-[9px] font-black uppercase shadow-[1px_1px_0px_0px_#000]">
-                              +{node.xp} XP
-                            </span>
-                          </button>
-
-                          {/* Node Title & Subtitle Badge */}
-                          <div className="text-center mt-3 max-w-[200px]">
-                            <span className="text-xs font-black uppercase text-black block leading-tight">
-                              {node.title}
-                            </span>
-                            <span className="text-[10px] font-bold text-black/60 truncate block mt-0.5">
-                              {node.subtitle}
-                            </span>
-                          </div>
-
-                        </div>
-                      );
-                    })}
-
-                  </div>
+                  {/* Winding Stepping Stone Nodes with aligned S-Curve */}
+                  <DuolingoUnitPath
+                    unit={unit}
+                    completedNodes={completedNodes}
+                    onNodeClick={setActiveNodeModal}
+                  />
 
                 </div>
               ))}
