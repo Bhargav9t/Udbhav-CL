@@ -10,6 +10,15 @@
   100% { transform: translateX(100%); } 
 }
 
+@keyframes mascotBob {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
 /* Global Playfair Display and Brutalist Light-Blue Theme */
 * {
   font-family: 'Playfair Display', Georgia, serif;

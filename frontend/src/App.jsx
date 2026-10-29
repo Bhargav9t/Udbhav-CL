@@ -4,6 +4,7 @@ import AuthForm from './components/AuthForm';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import AICoach from './components/AICoach';
+import AIMascotCoach from './components/AIMascotCoach';
 import MyLadder from './components/MyLadder';
 import JobMatcher from './components/JobMatcher';
 import { WaveGridBackground } from './components/ui/wave-grid-background';
@@ -51,6 +52,7 @@ export default function App() {
   const [resumeText, setResumeText] = useState(() => localStorage.getItem('career_ladder_resume') || DEFAULT_CANDIDATE_RESUME);
   const [currentJobContext, setCurrentJobContext] = useState(null);
   const [activeRecruiterJob, setActiveRecruiterJob] = useState(null);
+  const [isMascotCoachOpen, setIsMascotCoachOpen] = useState(false);
 
   // Persist resume text
   useEffect(() => {
@@ -118,6 +120,12 @@ export default function App() {
 
   // Strict Role-Based View Navigation with Guards
   const handleNavigate = (view) => {
+    // If Job Seeker clicks 'aicoach', toggle the Mascot Coach window
+    if (view === 'aicoach') {
+      setIsMascotCoachOpen(prev => !prev);
+      return;
+    }
+
     // If Job Seeker attempts to access Recruiter routes -> redirect to Job Seeker Dashboard
     if (userRole === 'job_seeker' && view.startsWith('recruiter')) {
       console.warn('Access denied: Job Seeker redirected from recruiter route.');
@@ -138,7 +146,7 @@ export default function App() {
   // Job Seeker: Open AI Coach with Job context
   const handleOpenAICoachWithJob = (job) => {
     setCurrentJobContext(job);
-    setCurrentView('aicoach');
+    setIsMascotCoachOpen(true);
   };
 
   // Recruiter: Select Job to launch AI Multi-Candidate Ranker
@@ -332,6 +340,18 @@ export default function App() {
             />
           )}
         </>
+      )}
+
+      {/* Floating Interactive AI Mascot Coach */}
+      {userRole === 'job_seeker' && (
+        <AIMascotCoach
+          resumeText={resumeText}
+          setResumeText={setResumeText}
+          currentJobContext={currentJobContext}
+          clearJobContext={() => setCurrentJobContext(null)}
+          isOpen={isMascotCoachOpen}
+          setIsOpen={setIsMascotCoachOpen}
+        />
       )}
     </Layout>
   );
