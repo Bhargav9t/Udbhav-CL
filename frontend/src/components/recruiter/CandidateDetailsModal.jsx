@@ -34,112 +34,112 @@ export default function CandidateDetailsModal({
   const getRecommendationBadge = (rec) => {
     switch (rec) {
       case 'STRONGLY RECOMMEND':
-        return 'bg-emerald-500 text-white border-emerald-600';
+        return 'bg-[#7DD3FC] text-black border-2 border-black';
       case 'RECOMMEND':
-        return 'bg-green-600 text-white border-green-700';
+        return 'bg-[#BAE6FD] text-black border-2 border-black';
       case 'CONSIDER':
-        return 'bg-amber-500 text-white border-amber-600';
+        return 'bg-[#E0F2FE] text-black border-2 border-black';
       case 'LOW MATCH':
-        return 'bg-orange-500 text-white border-orange-600';
+        return 'bg-[#F0F9FF] text-black border-2 border-black';
       case 'NOT RECOMMENDED':
-        return 'bg-rose-600 text-white border-rose-700';
+        return 'bg-[#E2E8F0] text-black border-2 border-black';
       default:
-        return 'bg-gray-600 text-white border-gray-700';
+        return 'bg-white text-black border-2 border-black';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 sm:p-6 animate-fadeIn">
-      <div className="relative bg-white w-full max-w-4xl rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/70 flex items-center justify-center p-4 sm:p-6 font-serif text-black">
+      <div className="relative bg-[#F0F9FF] w-full max-w-4xl border-4 border-black shadow-[12px_12px_0px_0px_#000] overflow-hidden flex flex-col max-h-[90vh]">
         
         {/* Modal Header */}
-        <div className="px-8 py-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-start justify-between shrink-0">
+        <div className="px-8 py-6 bg-[#BAE6FD] border-b-4 border-black text-black flex items-start justify-between shrink-0">
           <div className="space-y-1">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-white/10 flex items-center justify-center text-xl font-bold border border-white/15">
+              <div className="w-12 h-12 bg-black text-[#7DD3FC] border-2 border-black flex items-center justify-center text-xl font-black shadow-[2px_2px_0px_0px_#000]">
                 {(candProfile.name || candidate.file_name)?.[0]?.toUpperCase()}
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-white tracking-tight">
+                <h2 className="text-2xl font-black uppercase text-black tracking-tight">
                   {candProfile.name || candidate.file_name?.replace(/\.[^/.]+$/, '')}
                 </h2>
-                <div className="flex items-center gap-3 text-xs text-indigo-200 mt-0.5">
+                <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-black/80 mt-0.5">
                   {candProfile.email && <span>{candProfile.email}</span>}
                   <span className="flex items-center gap-1">
-                    <FileText className="w-3.5 h-3.5" /> {candidate.file_name}
+                    <FileText className="w-3.5 h-3.5 stroke-black" /> {candidate.file_name}
                   </span>
-                  <span>• Target: <strong className="text-white">{job?.title || 'Open Role'}</strong></span>
+                  <span>• Target: <strong className="text-black uppercase">{job?.title || 'Open Role'}</strong></span>
                 </div>
               </div>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="text-right">
-              <span className="text-[10px] tracking-wider uppercase text-indigo-200 font-semibold block">Overall Match</span>
-              <div className="text-3xl font-extrabold text-white">
+            <div className="text-right bg-white border-2 border-black px-3 py-1 shadow-[2px_2px_0px_0px_#000]">
+              <span className="text-[10px] tracking-wider uppercase text-black font-black block">Overall Match</span>
+              <div className="text-2xl font-black text-black">
                 {scores.overall}%
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+              className="p-2 bg-white hover:bg-[#BAE6FD] border-2 border-black text-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <X className="w-5 h-5 stroke-[2.5]" />
             </button>
           </div>
         </div>
 
         {/* Modal Scrollable Body */}
-        <div className="p-8 overflow-y-auto space-y-8 bg-slate-50/50">
+        <div className="p-8 overflow-y-auto space-y-6 bg-[#F0F9FF]">
           
           {/* Recommendation Banner */}
-          <div className="p-5 rounded-2xl bg-white border border-gray-200 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="p-5 bg-white border-3 border-black shadow-[4px_4px_0px_0px_#000] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-600" />
-                <span className="text-xs font-bold uppercase tracking-wider text-gray-400">AI Evaluation Recommendation</span>
+                <Sparkles className="w-5 h-5 text-black stroke-[2.5]" />
+                <span className="text-xs font-black uppercase tracking-wider text-black">AI Evaluation Recommendation</span>
               </div>
-              <p className="text-sm text-gray-700 font-medium leading-relaxed">
+              <p className="text-xs text-black/80 font-bold leading-relaxed">
                 {reason || 'Candidate displays solid alignment across key technical and project requirements.'}
               </p>
             </div>
-            <span className={`px-4 py-2 rounded-xl font-bold text-xs tracking-wider shadow-sm shrink-0 border ${getRecommendationBadge(recommendation)}`}>
+            <span className={`px-4 py-2 font-black text-xs uppercase tracking-wider shadow-[2px_2px_0px_0px_#000] shrink-0 border-2 border-black ${getRecommendationBadge(recommendation)}`}>
               {recommendation}
             </span>
           </div>
 
-          {/* Transparent Scoring Breakdown (Formula: 40% Skills, 25% Exp, 15% Projects, 10% Edu, 10% Other) */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">
+          {/* Transparent Scoring Breakdown */}
+          <div className="bg-white p-6 border-3 border-black shadow-[4px_4px_0px_0px_#000] space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b-2 border-black pb-2">
+              <h3 className="text-xs font-black uppercase tracking-wider text-black">
                 Transparent Formula-Based Scoring (100% Total)
               </h3>
-              <span className="text-xs text-gray-400 font-mono">
+              <span className="text-[10px] text-black font-bold uppercase bg-[#E0F2FE] border border-black px-2 py-0.5">
                 Formula: (Skills×0.4) + (Exp×0.25) + (Proj×0.15) + (Edu×0.1) + (Other×0.1)
               </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-2">
-              <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 text-center">
-                <span className="text-[11px] font-semibold text-indigo-700 block">Technical (40%)</span>
-                <span className="text-xl font-bold text-indigo-900">{scores.skill}%</span>
+              <div className="p-3 bg-[#BAE6FD] border-2 border-black text-center shadow-[2px_2px_0px_0px_#000]">
+                <span className="text-[10px] font-black uppercase text-black block">Tech (40%)</span>
+                <span className="text-2xl font-black text-black">{scores.skill}%</span>
               </div>
-              <div className="p-3 bg-blue-50/60 rounded-xl border border-blue-100 text-center">
-                <span className="text-[11px] font-semibold text-blue-700 block">Experience (25%)</span>
-                <span className="text-xl font-bold text-blue-900">{scores.experience}%</span>
+              <div className="p-3 bg-[#7DD3FC] border-2 border-black text-center shadow-[2px_2px_0px_0px_#000]">
+                <span className="text-[10px] font-black uppercase text-black block">Exp (25%)</span>
+                <span className="text-2xl font-black text-black">{scores.experience}%</span>
               </div>
-              <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-100 text-center">
-                <span className="text-[11px] font-semibold text-purple-700 block">Projects (15%)</span>
-                <span className="text-xl font-bold text-purple-900">{scores.project}%</span>
+              <div className="p-3 bg-[#93C5FD] border-2 border-black text-center shadow-[2px_2px_0px_0px_#000]">
+                <span className="text-[10px] font-black uppercase text-black block">Proj (15%)</span>
+                <span className="text-2xl font-black text-black">{scores.project}%</span>
               </div>
-              <div className="p-3 bg-emerald-50/60 rounded-xl border border-emerald-100 text-center">
-                <span className="text-[11px] font-semibold text-emerald-700 block">Education (10%)</span>
-                <span className="text-xl font-bold text-emerald-900">{scores.education}%</span>
+              <div className="p-3 bg-[#BAE6FD] border-2 border-black text-center shadow-[2px_2px_0px_0px_#000]">
+                <span className="text-[10px] font-black uppercase text-black block">Edu (10%)</span>
+                <span className="text-2xl font-black text-black">{scores.education}%</span>
               </div>
-              <div className="p-3 bg-amber-50/60 rounded-xl border border-amber-100 text-center">
-                <span className="text-[11px] font-semibold text-amber-700 block">Other/Certs (10%)</span>
-                <span className="text-xl font-bold text-amber-900">{scores.other}%</span>
+              <div className="p-3 bg-[#E0F2FE] border-2 border-black text-center shadow-[2px_2px_0px_0px_#000]">
+                <span className="text-[10px] font-black uppercase text-black block">Other (10%)</span>
+                <span className="text-2xl font-black text-black">{scores.other}%</span>
               </div>
             </div>
           </div>
@@ -147,23 +147,23 @@ export default function CandidateDetailsModal({
           {/* Skill Comparison */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Matched Skills */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-                <h3 className="text-sm font-bold text-gray-900">
+            <div className="bg-white p-6 border-3 border-black shadow-[4px_4px_0px_0px_#000]">
+              <div className="flex items-center gap-2 mb-4 border-b-2 border-black pb-2">
+                <CheckCircle2 className="w-5 h-5 text-black stroke-[2.5]" />
+                <h3 className="text-xs font-black uppercase text-black">
                   Matched Skills ({matchedSkills.length})
                 </h3>
               </div>
               {matchedSkills.length === 0 ? (
-                <p className="text-xs text-gray-400 italic">No direct skill matches detected.</p>
+                <p className="text-xs text-black/60 italic">No direct skill matches detected.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {matchedSkills.map((skill, idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black uppercase bg-[#7DD3FC] text-black border border-black shadow-[1px_1px_0px_0px_#000]"
                     >
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      <CheckCircle2 className="w-3.5 h-3.5 stroke-black" />
                       {skill}
                     </span>
                   ))}
@@ -172,23 +172,23 @@ export default function CandidateDetailsModal({
             </div>
 
             {/* Missing Skills */}
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="flex items-center gap-2 mb-4">
-                <XCircle className="w-5 h-5 text-rose-500" />
-                <h3 className="text-sm font-bold text-gray-900">
+            <div className="bg-white p-6 border-3 border-black shadow-[4px_4px_0px_0px_#000]">
+              <div className="flex items-center gap-2 mb-4 border-b-2 border-black pb-2">
+                <XCircle className="w-5 h-5 text-black stroke-[2.5]" />
+                <h3 className="text-xs font-black uppercase text-black">
                   Missing Skills ({missingSkills.length})
                 </h3>
               </div>
               {missingSkills.length === 0 ? (
-                <p className="text-xs text-emerald-600 font-medium">All core job skills covered!</p>
+                <p className="text-xs text-black font-black bg-[#BAE6FD] p-2 border border-black">All core job skills covered!</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {missingSkills.map((skill, idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200"
+                      className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-black uppercase bg-[#E0F2FE] text-black border border-black shadow-[1px_1px_0px_0px_#000]"
                     >
-                      <XCircle className="w-3.5 h-3.5 text-rose-500" />
+                      <XCircle className="w-3.5 h-3.5 stroke-black" />
                       {skill}
                     </span>
                   ))}
@@ -199,46 +199,46 @@ export default function CandidateDetailsModal({
 
           {/* Experience & Education Alignment */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <Briefcase className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-sm font-bold text-gray-900">Experience Alignment</h3>
+            <div className="bg-white p-6 border-3 border-black shadow-[4px_4px_0px_0px_#000] space-y-3">
+              <div className="flex items-center gap-2 border-b-2 border-black pb-2">
+                <Briefcase className="w-5 h-5 text-black stroke-[2.5]" />
+                <h3 className="text-xs font-black uppercase text-black">Experience Alignment</h3>
               </div>
-              <div className="text-xs space-y-2 text-gray-600 bg-gray-50 p-4 rounded-xl">
+              <div className="text-xs space-y-2 text-black font-bold bg-[#F0F9FF] p-4 border border-black">
                 <div>
-                  <span className="font-semibold text-gray-700">Required:</span>{' '}
+                  <span className="font-black uppercase text-black/60">Required:</span>{' '}
                   {expMatch.required || job?.experience_required || '5+ years'}
                 </div>
                 <div>
-                  <span className="font-semibold text-gray-700">Candidate:</span>{' '}
+                  <span className="font-black uppercase text-black/60">Candidate:</span>{' '}
                   {expMatch.candidate || 'Verified from resume history'}
                 </div>
                 <div className="pt-1">
-                  <span className="font-semibold text-gray-700">Status:</span>{' '}
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-indigo-100 text-indigo-800">
+                  <span className="font-black uppercase text-black/60">Status:</span>{' '}
+                  <span className="inline-block px-2.5 py-0.5 border border-black text-[10px] font-black uppercase bg-[#BAE6FD]">
                     {expMatch.status || 'Match'}
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <GraduationCap className="w-5 h-5 text-purple-600" />
-                <h3 className="text-sm font-bold text-gray-900">Education Alignment</h3>
+            <div className="bg-white p-6 border-3 border-black shadow-[4px_4px_0px_0px_#000] space-y-3">
+              <div className="flex items-center gap-2 border-b-2 border-black pb-2">
+                <GraduationCap className="w-5 h-5 text-black stroke-[2.5]" />
+                <h3 className="text-xs font-black uppercase text-black">Education Alignment</h3>
               </div>
-              <div className="text-xs space-y-2 text-gray-600 bg-gray-50 p-4 rounded-xl">
+              <div className="text-xs space-y-2 text-black font-bold bg-[#F0F9FF] p-4 border border-black">
                 <div>
-                  <span className="font-semibold text-gray-700">Required:</span>{' '}
+                  <span className="font-black uppercase text-black/60">Required:</span>{' '}
                   {eduMatch.required || job?.education_required || 'Relevant Degree'}
                 </div>
                 <div>
-                  <span className="font-semibold text-gray-700">Candidate:</span>{' '}
+                  <span className="font-black uppercase text-black/60">Candidate:</span>{' '}
                   {eduMatch.candidate || 'Verified degree in field'}
                 </div>
                 <div className="pt-1">
-                  <span className="font-semibold text-gray-700">Status:</span>{' '}
-                  <span className="inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-purple-100 text-purple-800">
+                  <span className="font-black uppercase text-black/60">Status:</span>{' '}
+                  <span className="inline-block px-2.5 py-0.5 border border-black text-[10px] font-black uppercase bg-[#BAE6FD]">
                     {eduMatch.status || 'Match'}
                   </span>
                 </div>
@@ -246,35 +246,35 @@ export default function CandidateDetailsModal({
             </div>
           </div>
 
-          {/* Strengths & Concerns */}
+          {/* Strengths & Considerations */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-500" />
-                <h3 className="text-sm font-bold text-gray-900">Key Strengths</h3>
+            <div className="bg-white p-6 border-3 border-black shadow-[4px_4px_0px_0px_#000] space-y-3">
+              <div className="flex items-center gap-2 border-b-2 border-black pb-2">
+                <Award className="w-5 h-5 text-black stroke-[2.5]" />
+                <h3 className="text-xs font-black uppercase text-black">Key Strengths</h3>
               </div>
               <ul className="space-y-2">
                 {strengths.map((str, i) => (
-                  <li key={i} className="text-xs text-gray-700 flex items-start gap-2">
-                    <span className="text-emerald-500 font-bold mt-0.5">✓</span>
+                  <li key={i} className="text-xs text-black font-bold flex items-start gap-2">
+                    <span className="text-black font-black mt-0.5">✓</span>
                     <span>{str}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-3">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5 text-amber-500" />
-                <h3 className="text-sm font-bold text-gray-900">Considerations / Evidence Gaps</h3>
+            <div className="bg-white p-6 border-3 border-black shadow-[4px_4px_0px_0px_#000] space-y-3">
+              <div className="flex items-center gap-2 border-b-2 border-black pb-2">
+                <AlertTriangle className="w-5 h-5 text-black stroke-[2.5]" />
+                <h3 className="text-xs font-black uppercase text-black">Considerations / Gaps</h3>
               </div>
               {concerns.length === 0 ? (
-                <p className="text-xs text-gray-500 italic">No significant concerns or evidence gaps found.</p>
+                <p className="text-xs text-black/60 italic">No significant concerns or evidence gaps found.</p>
               ) : (
                 <ul className="space-y-2">
                   {concerns.map((con, i) => (
-                    <li key={i} className="text-xs text-gray-700 flex items-start gap-2">
-                      <span className="text-amber-500 font-bold mt-0.5">!</span>
+                    <li key={i} className="text-xs text-black font-bold flex items-start gap-2">
+                      <span className="text-black font-black mt-0.5">!</span>
                       <span>{con}</span>
                     </li>
                   ))}
@@ -282,66 +282,18 @@ export default function CandidateDetailsModal({
               )}
             </div>
           </div>
-
-          {/* Extracted Profile Details (Education, Experience, Projects) */}
-          <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500">
-              Extracted Resume Profile Summary
-            </h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-              <div>
-                <h4 className="font-bold text-gray-800 mb-2">Education</h4>
-                {candProfile.education?.length ? (
-                  <ul className="list-disc pl-4 space-y-1 text-gray-600">
-                    {candProfile.education.map((e, i) => (
-                      <li key={i}>{e}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-400 italic">None listed</p>
-                )}
-              </div>
-
-              <div>
-                <h4 className="font-bold text-gray-800 mb-2">Experience Highlights</h4>
-                {candProfile.experience?.length ? (
-                  <ul className="list-disc pl-4 space-y-1 text-gray-600">
-                    {candProfile.experience.map((e, i) => (
-                      <li key={i}>{e}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-400 italic">None listed</p>
-                )}
-              </div>
-
-              <div>
-                <h4 className="font-bold text-gray-800 mb-2">Key Projects</h4>
-                {candProfile.projects?.length ? (
-                  <ul className="list-disc pl-4 space-y-1 text-gray-600">
-                    {candProfile.projects.map((p, i) => (
-                      <li key={i}>{p}</li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="text-gray-400 italic">None listed</p>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Modal Footer Actions */}
-        <div className="p-6 bg-white border-t border-gray-200 flex items-center justify-between shrink-0">
+        <div className="p-6 bg-white border-t-4 border-black flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-500">Current Status:</span>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+            <span className="text-xs font-black uppercase text-black/60">Status:</span>
+            <span className={`px-2.5 py-0.5 text-xs font-black uppercase border-2 border-black shadow-[2px_2px_0px_0px_#000] ${
               candidate.status === 'SHORTLISTED'
-                ? 'bg-emerald-100 text-emerald-800'
+                ? 'bg-[#7DD3FC] text-black'
                 : candidate.status === 'REJECTED'
-                ? 'bg-rose-100 text-rose-800'
-                : 'bg-indigo-100 text-indigo-800'
+                ? 'bg-[#E0F2FE] text-black'
+                : 'bg-[#BAE6FD] text-black'
             }`}>
               {candidate.status || 'ANALYZED'}
             </span>
@@ -353,18 +305,18 @@ export default function CandidateDetailsModal({
                 onReject(candidate);
                 onClose();
               }}
-              className="px-5 py-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="px-5 py-2.5 bg-[#E0F2FE] hover:bg-[#BAE6FD] text-black border-2 border-black text-xs font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors flex items-center gap-1.5 cursor-pointer"
             >
-              <UserX className="w-4 h-4" /> Reject Candidate
+              <UserX className="w-4 h-4 stroke-[2.5]" /> Reject
             </button>
             <button
               onClick={() => {
                 onShortlist(candidate);
                 onClose();
               }}
-              className="px-6 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md shadow-emerald-200 hover:shadow-emerald-300 transition-all flex items-center gap-1.5 cursor-pointer"
+              className="px-6 py-2.5 bg-[#7DD3FC] hover:bg-[#38BDF8] text-black border-2 border-black text-xs font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <UserCheck className="w-4 h-4" /> Shortlist Candidate
+              <UserCheck className="w-4 h-4 stroke-[2.5]" /> Shortlist
             </button>
           </div>
         </div>

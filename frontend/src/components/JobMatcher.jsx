@@ -1,963 +1,758 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-  Target, Sparkles, CheckCircle2, AlertTriangle, ArrowRight, Brain, 
-  Briefcase, FileText, Zap, ShieldAlert, BookOpen, Clock, Code, Award, 
-  Check, Layers, ChevronRight, Upload, Trash2, Eye, Compass, Lightbulb, 
-  RefreshCw, CheckCircle, HelpCircle, AlertCircle, Copy
+  Sparkles, CheckCircle2, AlertTriangle, ArrowRight, Brain, 
+  Briefcase, RefreshCw, FileText, Zap, ShieldAlert, BookOpen,
+  Target, Award, Star, Lock, Check, Flame, Heart, Trophy, 
+  ChevronRight, Building2, MapPin, DollarSign, Layers
 } from 'lucide-react';
-import { analyzeSkillGapDetailed } from '../lib/ai';
-import { extractTextFromFile, formatFileSize } from '../lib/fileParser';
+import { 
+  extractResumeProfile, 
+  TARGET_JOB_PRESETS, 
+  generateDuolingoRoadmap 
+} from '../lib/skillExtractor';
 
-// Sample presets for quick testing
-const SAMPLE_RESUME = `Aadarsh Kumar
-Senior Full-Stack & Machine Learning Engineer
-Email: aadarsh@example.com | GitHub: github.com/aadarsh | San Francisco, CA
-
-PROFESSIONAL SUMMARY
-Dynamic Software Engineer with 4+ years of experience crafting high-throughput web applications and AI agents. Specialist in Python, React, PyTorch, Node.js, and PostgreSQL.
-
-TECHNICAL SKILLS
-- Programming Languages: Python, JavaScript, TypeScript, SQL, C++
-- AI / ML Frameworks: PyTorch, TensorFlow, Hugging Face Transformers, LangChain, Scikit-learn
-- Web & Backend: React.js, FastAPI, Node.js, Express, Tailwind CSS, REST & GraphQL APIs
-- Databases & Cloud: PostgreSQL, Supabase, Redis, AWS (S3, EC2 basic deployment), Docker, Git
-
-EXPERIENCE
-Software Engineer | Tech Corp (2022 - Present)
-- Architected REST microservices in Python & FastAPI serving 500k daily requests.
-- Trained custom transformer models using PyTorch for automated document categorization.
-- Developed real-time collaborative frontend dashboards using React and WebSockets.
-- Managed PostgreSQL database queries and indexing for user activity tracking.
-
-Junior Engineer | DataSprint Labs (2020 - 2022)
-- Built internal analytics dashboards with React and Express.
-- Containerized development environments using Docker.
-
-EDUCATION
-B.S. in Computer Science | UC Irvine (2016 - 2020)`;
-
-const SAMPLE_JOB = `Senior AI Solutions Architect & Backend Engineer
-Company: Apex AI Labs
-Location: Remote / San Francisco, CA
-
-JOB SUMMARY:
-Apex AI Labs is seeking a Senior AI Backend Engineer to architect next-generation agentic workflows and LLM deployment pipelines.
-
-REQUIRED QUALIFICATIONS:
-- 4+ years building backend microservices in Python (FastAPI or Django) and Node.js.
-- Strong hands-on foundation in Deep Learning Frameworks (PyTorch or TensorFlow).
-- Experience with Relational Database design & query optimization (PostgreSQL / SQL).
-- Production experience containerizing and orchestrating services with Docker and Kubernetes (K8s).
-- Cloud Infrastructure expertise on AWS (ECS, Lambda, S3, CloudWatch).
-- Familiarity with Modern Frontend Web UI (React).
-
-PREFERRED / BONUS QUALIFICATIONS:
-- Hands-on experience with Vector Databases (Pinecone, Weaviate, or pgvector).
-- Experience with Distributed Systems, Redis caching, and Terraform Infrastructure as Code (IaC).
-- Prior contributions to open-source LLM or Agent frameworks.`;
-
-export default function JobMatcher({ resumeText: savedResumeText }) {
-  // Input states
-  const [resumeText, setResumeText] = useState(savedResumeText || SAMPLE_RESUME);
-  const [jobDescription, setJobDescription] = useState(SAMPLE_JOB);
+export default function JobMatcher({ resumeText: initialResumeText }) {
+  const [resumeText, setResumeText] = useState(initialResumeText || '');
+  const [selectedPresetIndex, setSelectedPresetIndex] = useState(0);
+  const [customCompany, setCustomCompany] = useState('');
+  const [customRole, setCustomRole] = useState('');
+  const [customJobDesc, setCustomJobDesc] = useState('');
+  const [isCustomMode, setIsCustomMode] = useState(false);
   
-  // File upload states
-  const [resumeFileName, setResumeFileName] = useState('');
-  const [jobFileName, setJobFileName] = useState('');
-  const [isProcessingResumeFile, setIsProcessingResumeFile] = useState(false);
-  const [isProcessingJobFile, setIsProcessingJobFile] = useState(false);
+  // Custom added skill input
+  const [extraSkills, setExtraSkills] = useState([]);
+  const [newSkillInput, setNewSkillInput] = useState('');
 
-  // Analysis states
+  // Active evaluation & roadmap state
+  const [roadmap, setRoadmap] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [matchResult, setMatchResult] = useState(null);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [activeSkillTab, setActiveSkillTab] = useState('all'); // 'all' | 'matched' | 'partial' | 'missing'
-  const [copiedBulletIdx, setCopiedBulletIdx] = useState(null);
 
-  const resumeInputRef = useRef(null);
-  const jobInputRef = useRef(null);
+  // Duolingo interactive progress state
+  const [completedNodes, setCompletedNodes] = useState(['u1-node-1']);
+  const [userXp, setUserXp] = useState(380);
+  const [activeNodeModal, setActiveNodeModal] = useState(null);
+  const [celebrationToast, setCelebrationToast] = useState('');
 
-  // Resume File Upload
-  const handleResumeFileUpload = async (file) => {
-    if (!file) return;
-    setIsProcessingResumeFile(true);
-    try {
-      const parsed = await extractTextFromFile(file);
-      if (parsed.text && parsed.text.trim()) {
-        setResumeText(parsed.text.trim());
-        setResumeFileName(file.name);
-      } else {
-        setErrorMessage(`Could not extract readable text from ${file.name}.`);
-      }
-    } catch (err) {
-      setErrorMessage(`Error parsing resume file: ${err.message}`);
-    } finally {
-      setIsProcessingResumeFile(false);
+  // Extract candidate profile from resume
+  const profile = useMemo(() => {
+    const p = extractResumeProfile(resumeText);
+    if (extraSkills.length > 0) {
+      return {
+        ...p,
+        allSkills: [...new Set([...p.allSkills, ...extraSkills])]
+      };
     }
-  };
+    return p;
+  }, [resumeText, extraSkills]);
 
-  // Job Description File Upload
-  const handleJobFileUpload = async (file) => {
-    if (!file) return;
-    setIsProcessingJobFile(true);
-    try {
-      const parsed = await extractTextFromFile(file);
-      if (parsed.text && parsed.text.trim()) {
-        setJobDescription(parsed.text.trim());
-        setJobFileName(file.name);
-      } else {
-        setErrorMessage(`Could not extract readable text from ${file.name}.`);
-      }
-    } catch (err) {
-      setErrorMessage(`Error parsing job description file: ${err.message}`);
-    } finally {
-      setIsProcessingJobFile(false);
+  // Current target job
+  const currentTargetJob = useMemo(() => {
+    if (isCustomMode) {
+      return {
+        company: customCompany || 'Dream Company',
+        role: customRole || 'Senior Software Engineer',
+        location: 'Remote / Hybrid',
+        salary: '$180,000 - $260,000',
+        description: customJobDesc || 'Custom technical engineering role.',
+        requiredSkills: ['Distributed Systems', 'Python', 'Kubernetes', 'Docker', 'PostgreSQL'],
+        preferredSkills: ['gRPC', 'Ray', 'OpenTelemetry', 'Kafka'],
+        experienceRequired: '4+ years'
+      };
     }
-  };
+    return TARGET_JOB_PRESETS[selectedPresetIndex] || TARGET_JOB_PRESETS[0];
+  }, [isCustomMode, selectedPresetIndex, customCompany, customRole, customJobDesc]);
 
-  // Load Saved Resume from Global Profile
-  const handleUseSavedResume = () => {
-    const saved = localStorage.getItem('career_ladder_resume');
-    if (saved && saved.trim()) {
-      setResumeText(saved.trim());
-      setResumeFileName('Synced from Your Profile');
-    } else {
-      setErrorMessage('No saved profile resume found. Please paste your resume or upload a file.');
+  // Initial evaluation on mount or preset switch
+  useEffect(() => {
+    if (resumeText) {
+      const generated = generateDuolingoRoadmap(resumeText, currentTargetJob);
+      setRoadmap(generated);
     }
-  };
+  }, [resumeText, currentTargetJob]);
 
-  // Run Skill Gap Analysis
-  const handleRunSkillGapAnalysis = async () => {
-    if (!resumeText.trim()) {
-      setErrorMessage('Please provide a candidate resume (paste text or upload file).');
-      return;
-    }
-    if (!jobDescription.trim()) {
-      setErrorMessage('Please provide a target job description (paste text or upload file).');
-      return;
-    }
-
-    setErrorMessage('');
+  // Trigger evaluation
+  const handleRunEvaluation = () => {
     setAnalyzing(true);
-    setMatchResult(null);
-
-    try {
-      const result = await analyzeSkillGapDetailed(resumeText, jobDescription);
-      setMatchResult(result);
-    } catch (err) {
-      console.error("AI Skill Gap Analysis error:", err);
-      setErrorMessage(err.message || "Failed to generate AI analysis. Please check your Groq API key or try again.");
-    } finally {
+    setTimeout(() => {
+      const generated = generateDuolingoRoadmap(resumeText, currentTargetJob);
+      setRoadmap(generated);
       setAnalyzing(false);
-    }
+      setCelebrationToast(`Evaluated against ${currentTargetJob.company}! Duolingo roadmap updated.`);
+      setTimeout(() => setCelebrationToast(''), 4000);
+    }, 400);
   };
 
-  // Copy sample bullet point helper
-  const handleCopyBullet = (text, idx) => {
-    navigator.clipboard.writeText(text);
-    setCopiedBulletIdx(idx);
-    setTimeout(() => setCopiedBulletIdx(null), 2000);
+  const handleAddExtraSkill = (e) => {
+    e.preventDefault();
+    if (!newSkillInput.trim()) return;
+    setExtraSkills(prev => [...prev, newSkillInput.trim()]);
+    setNewSkillInput('');
   };
 
-  // Priority color styling helper
-  const getPriorityBadge = (priority) => {
-    const p = (priority || 'medium').toLowerCase();
-    if (p === 'critical') {
-      return 'bg-red-100 text-red-800 border-red-200';
+  const handleToggleNodeCompletion = (node) => {
+    const isCompleted = completedNodes.includes(node.id);
+    if (isCompleted) {
+      setCompletedNodes(prev => prev.filter(id => id !== node.id));
+      setUserXp(prev => Math.max(0, prev - node.xp));
+    } else {
+      setCompletedNodes(prev => [...prev, node.id]);
+      setUserXp(prev => prev + node.xp);
+      setCelebrationToast(`🎉 Completed "${node.title}"! +${node.xp} XP earned!`);
+      setTimeout(() => setCelebrationToast(''), 3500);
     }
-    if (p === 'high') {
-      return 'bg-amber-100 text-amber-800 border-amber-200';
-    }
-    if (p === 'medium') {
-      return 'bg-blue-100 text-blue-800 border-blue-200';
-    }
-    return 'bg-slate-100 text-slate-700 border-slate-200';
+    setActiveNodeModal(null);
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-16">
+    <div className="max-w-7xl mx-auto space-y-10 pb-16 font-serif text-black">
       
-      {/* ========================================================================= */}
-      {/* Header Banner                                                             */}
-      {/* ========================================================================= */}
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl border border-indigo-900/40">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="max-w-3xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-semibold uppercase tracking-wider mb-3">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-              AI Skill Gap Analysis Engine
+      {/* ================= HERO HEADER ================= */}
+      <div className="bg-[#BAE6FD] border-4 border-black p-8 text-black shadow-[8px_8px_0px_0px_#000]">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 bg-black text-[#7DD3FC] border-2 border-black text-xs font-black uppercase tracking-widest shadow-[2px_2px_0px_0px_#000]">
+              <Sparkles className="w-3.5 h-3.5 text-[#7DD3FC]" />
+              AI Job Matcher & Gamified Learning Engine
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-              Targeted Resume vs. Job Description Intelligence
+            <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-black leading-tight">
+              Resume-to-Role Matcher & Duolingo Roadmap
             </h1>
-            <p className="mt-2 text-indigo-200/90 text-xs sm:text-sm leading-relaxed">
-              Upload your resume and the target role requirements. Our AI compares every requirement against your actual experience, identifying matched skills, partially matched competencies, critical gaps, and an exact step-by-step roadmap to qualify.
+            <p className="text-black/80 font-bold max-w-2xl text-xs sm:text-sm leading-relaxed">
+              Compare your extracted resume skills against top engineering roles (e.g., Google, OpenAI, Stripe). 
+              Receive a comprehensive skill alignment matrix, gap diagnostic, and a gamified Duolingo learning path.
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2.5 shrink-0">
-            <button
-              onClick={() => {
-                setResumeText(SAMPLE_RESUME);
-                setJobDescription(SAMPLE_JOB);
-                setResumeFileName('Sample Resume');
-                setJobFileName('Sample Job Description');
-              }}
-              className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs border border-white/10 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Load Sample Pair
-            </button>
-            <button
-              onClick={handleUseSavedResume}
-              className="px-3.5 py-2 rounded-xl bg-indigo-600/80 hover:bg-indigo-600 text-white font-medium text-xs border border-indigo-500/30 transition-all flex items-center gap-1.5 cursor-pointer"
-            >
-              <FileText className="w-3.5 h-3.5" />
-              Use Profile Resume
-            </button>
+          {/* Gamification Stats Pill Header */}
+          <div className="bg-white border-3 border-black p-4 shadow-[4px_4px_0px_0px_#000] flex items-center gap-4 shrink-0">
+            <div className="flex items-center gap-1.5 font-black text-xs uppercase">
+              <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
+              <span>4 Day Streak</span>
+            </div>
+            <div className="h-5 w-0.5 bg-black"></div>
+            <div className="flex items-center gap-1.5 font-black text-xs uppercase">
+              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+              <span>{userXp} XP</span>
+            </div>
+            <div className="h-5 w-0.5 bg-black"></div>
+            <div className="flex items-center gap-1.5 font-black text-xs uppercase">
+              <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
+              <span>5/5</span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Error Alert */}
-      {errorMessage && (
-        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-sm flex items-center gap-3 shadow-xs">
-          <AlertTriangle className="w-5 h-5 shrink-0 text-red-500" />
-          <span className="font-medium">{errorMessage}</span>
+      {celebrationToast && (
+        <div className="p-4 bg-[#7DD3FC] border-3 border-black shadow-[4px_4px_0px_0px_#000] text-black text-xs font-black uppercase flex items-center gap-2 animate-bounce">
+          <Award className="w-5 h-5 stroke-[2.5]" />
+          <span>{celebrationToast}</span>
         </div>
       )}
 
-      {/* ========================================================================= */}
-      {/* Upload & Input Section: Resume + Job Description                          */}
-      {/* ========================================================================= */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* ================= DUAL COLUMN INPUT SECTION ================= */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Left: Resume Input */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex flex-col space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-indigo-600" />
-              Candidate Resume
-              {resumeFileName && (
-                <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-[11px] font-semibold truncate max-w-[160px]">
-                  {resumeFileName}
-                </span>
-              )}
-            </label>
-
-            <div className="flex items-center gap-2">
-              <input
-                ref={resumeInputRef}
-                type="file"
-                accept=".pdf,.docx,.doc,.txt,.md"
-                onChange={(e) => handleResumeFileUpload(e.target.files?.[0])}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => resumeInputRef.current?.click()}
-                disabled={isProcessingResumeFile}
-                className="px-2.5 py-1 text-xs font-semibold bg-gray-100 hover:bg-indigo-50 hover:text-indigo-600 text-gray-700 rounded-lg transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              >
-                <Upload className="w-3 h-3" />
-                {isProcessingResumeFile ? 'Parsing...' : 'Upload File'}
-              </button>
-            </div>
-          </div>
-
-          <textarea
-            value={resumeText}
-            onChange={(e) => setResumeText(e.target.value)}
-            placeholder="Paste candidate resume text or click Upload File (PDF, DOCX, TXT)..."
-            rows={10}
-            className="w-full flex-1 p-3.5 rounded-xl bg-slate-50 border border-gray-200 font-mono text-xs text-gray-800 focus:ring-2 focus:ring-indigo-500/50 focus:outline-none transition-all resize-y leading-relaxed"
-          />
-
-          <div className="flex justify-between items-center text-[11px] text-gray-400 px-1">
-            <span>{resumeText.trim() ? `${resumeText.trim().split(/\s+/).length} words` : 'Empty'}</span>
-            <span className="text-gray-400">PDF, DOCX, TXT supported</span>
-          </div>
-        </div>
-
-        {/* Right: Job Description Input */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm flex flex-col space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="text-xs sm:text-sm font-bold text-gray-900 flex items-center gap-2">
-              <Briefcase className="w-4 h-4 text-indigo-600" />
-              Target Job Description
-              {jobFileName && (
-                <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 text-[11px] font-semibold truncate max-w-[160px]">
-                  {jobFileName}
-                </span>
-              )}
-            </label>
-
-            <div className="flex items-center gap-2">
-              <input
-                ref={jobInputRef}
-                type="file"
-                accept=".pdf,.docx,.doc,.txt,.md"
-                onChange={(e) => handleJobFileUpload(e.target.files?.[0])}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() => jobInputRef.current?.click()}
-                disabled={isProcessingJobFile}
-                className="px-2.5 py-1 text-xs font-semibold bg-gray-100 hover:bg-purple-50 hover:text-purple-600 text-gray-700 rounded-lg transition-colors flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              >
-                <Upload className="w-3 h-3" />
-                {isProcessingJobFile ? 'Parsing...' : 'Upload File'}
-              </button>
-            </div>
-          </div>
-
-          <textarea
-            value={jobDescription}
-            onChange={(e) => setJobDescription(e.target.value)}
-            placeholder="Paste target job description and requirements here, or upload JD document..."
-            rows={10}
-            className="w-full flex-1 p-3.5 rounded-xl bg-slate-50 border border-gray-200 font-mono text-xs text-gray-800 focus:ring-2 focus:ring-indigo-500/50 focus:outline-none transition-all resize-y leading-relaxed"
-          />
-
-          <div className="flex justify-between items-center text-[11px] text-gray-400 px-1">
-            <span>{jobDescription.trim() ? `${jobDescription.trim().split(/\s+/).length} words` : 'Empty'}</span>
-            <span className="text-gray-400">Include Required & Preferred skills</span>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Action CTA Button */}
-      <div className="flex justify-center">
-        <button
-          onClick={handleRunSkillGapAnalysis}
-          disabled={analyzing}
-          className="px-8 py-3.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-bold text-sm sm:text-base shadow-lg shadow-indigo-600/25 transition-all flex items-center gap-3 disabled:opacity-50 cursor-pointer"
-        >
-          {analyzing ? (
-            <>
-              <RefreshCw className="w-5 h-5 animate-spin" />
-              <span>Analyzing Requirements & Skill Gaps with Groq AI...</span>
-            </>
-          ) : (
-            <>
-              <Brain className="w-5 h-5" />
-              <span>Run AI Skill Gap Analysis</span>
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* ========================================================================= */}
-      {/* STRUCTURED RESULTS DISPLAY (Rendered into Cards — Never Raw JSON)          */}
-      {/* ========================================================================= */}
-      {matchResult && (
-        <div className="space-y-8 animate-fadeIn">
-          
-          {/* ===================================================================== */}
-          {/* Card 1: Overall Match & Executive Summary                             */}
-          {/* ===================================================================== */}
-          <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-sm">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6 pb-6 border-b border-gray-100">
-              <div className="flex items-center gap-5">
-                {/* Match Score Circular Gauge */}
-                <div className="relative w-24 h-24 shrink-0 flex items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/10 via-purple-500/10 to-slate-100 border border-indigo-100 shadow-inner">
-                  <div className="text-center">
-                    <span className="text-3xl font-black text-indigo-900 tracking-tight">
-                      {matchResult.match_score}%
-                    </span>
-                    <span className="block text-[10px] font-bold text-indigo-600 uppercase tracking-wider">
-                      Match Score
-                    </span>
-                  </div>
+        {/* LEFT COLUMN: Extracted Skills from Resume */}
+        <div className="bg-white border-4 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between space-y-6">
+          <div className="space-y-4">
+            
+            <div className="flex items-center justify-between border-b-3 border-black pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-black text-[#7DD3FC] border border-black flex items-center justify-center shadow-[1px_1px_0px_0px_#000]">
+                  <FileText className="w-4 h-4 stroke-[2.5]" />
                 </div>
-
                 <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
-                      Overall Assessment
-                    </span>
-                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                      matchResult.match_score >= 80 
-                        ? 'bg-emerald-100 text-emerald-800' 
-                        : matchResult.match_score >= 60 
-                          ? 'bg-amber-100 text-amber-800' 
-                          : 'bg-rose-100 text-rose-800'
-                    }`}>
-                      {matchResult.career_verdict?.readiness || 'Evaluated'}
-                    </span>
-                  </div>
-                  <h2 className="text-xl font-extrabold text-gray-900">
-                    Candidate Compatibility Profile
+                  <h2 className="text-base font-black uppercase tracking-wider">
+                    Extracted Resume Skills
                   </h2>
+                  <span className="text-[10px] font-bold text-black/60 uppercase">
+                    Profile: {profile.name} ({profile.yearsOfExperience}+ yrs exp)
+                  </span>
                 </div>
               </div>
 
-              {/* Quick Stat Badges */}
-              <div className="flex flex-wrap gap-3">
-                <div className="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-100 text-center">
-                  <span className="block text-base font-bold text-emerald-700">
-                    {matchResult.matched_skills?.length || 0}
+              <span className="px-2.5 py-1 bg-[#BAE6FD] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                {profile.allSkills.length} Detected
+              </span>
+            </div>
+
+            {/* Categorized Skills Breakdown */}
+            <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1">
+              
+              {/* Languages */}
+              {profile.categorizedSkills.languages.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-black uppercase text-black/60 tracking-wider block mb-1.5">
+                    Programming Languages
                   </span>
-                  <span className="text-[11px] font-medium text-emerald-800">Matched Skills</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.categorizedSkills.languages.map((sk, idx) => (
+                      <span key={idx} className="px-2.5 py-1 bg-[#E0F2FE] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                        ✓ {sk}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-100 text-center">
-                  <span className="block text-base font-bold text-amber-700">
-                    {matchResult.partially_matched_skills?.length || 0}
+              )}
+
+              {/* Frameworks & AI */}
+              {profile.categorizedSkills.frameworks.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-black uppercase text-black/60 tracking-wider block mb-1.5">
+                    Frameworks & AI Libraries
                   </span>
-                  <span className="text-[11px] font-medium text-amber-800">Partial Skills</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.categorizedSkills.frameworks.map((sk, idx) => (
+                      <span key={idx} className="px-2.5 py-1 bg-[#BAE6FD] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                        ✓ {sk}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-                <div className="px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-100 text-center">
-                  <span className="block text-base font-bold text-rose-700">
-                    {matchResult.missing_skills?.length || 0}
+              )}
+
+              {/* Cloud & DevOps */}
+              {profile.categorizedSkills.cloudDevOps.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-black uppercase text-black/60 tracking-wider block mb-1.5">
+                    Cloud Infrastructure & DevOps
                   </span>
-                  <span className="text-[11px] font-medium text-rose-800">Missing Gaps</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.categorizedSkills.cloudDevOps.map((sk, idx) => (
+                      <span key={idx} className="px-2.5 py-1 bg-[#93C5FD] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                        ✓ {sk}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Databases */}
+              {profile.categorizedSkills.databases.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-black uppercase text-black/60 tracking-wider block mb-1.5">
+                    Databases & Vector Stores
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {profile.categorizedSkills.databases.map((sk, idx) => (
+                      <span key={idx} className="px-2.5 py-1 bg-[#E0F2FE] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                        ✓ {sk}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Extra user-added skills */}
+              {extraSkills.length > 0 && (
+                <div>
+                  <span className="text-[11px] font-black uppercase text-emerald-700 tracking-wider block mb-1.5">
+                    Manually Added Skills
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {extraSkills.map((sk, idx) => (
+                      <span key={idx} className="px-2.5 py-1 bg-emerald-100 border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                        + {sk}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            </div>
+
+            {/* Quick add custom skill input */}
+            <form onSubmit={handleAddExtraSkill} className="flex gap-2 pt-2 border-t border-black/20">
+              <input
+                type="text"
+                value={newSkillInput}
+                onChange={(e) => setNewSkillInput(e.target.value)}
+                placeholder="Add another skill (e.g. gRPC, Kafka)..."
+                className="flex-1 px-3 py-2 bg-[#F0F9FF] border-2 border-black text-xs font-bold text-black focus:outline-none focus:shadow-[2px_2px_0px_0px_#000]"
+              />
+              <button
+                type="submit"
+                className="px-4 py-2 bg-black text-[#7DD3FC] hover:bg-[#7DD3FC] hover:text-black border-2 border-black text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000] cursor-pointer"
+              >
+                + Add
+              </button>
+            </form>
+
+          </div>
+
+          <div className="text-[11px] font-bold text-black/60 pt-2 border-t-2 border-black">
+            💡 Extracted automatically from your active resume. Upload a new resume in the main feed to update this skill list.
+          </div>
+        </div>
+
+        {/* RIGHT COLUMN: The Job You Wanna Do */}
+        <div className="bg-white border-4 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#000] flex flex-col justify-between space-y-6">
+          <div className="space-y-4">
+            
+            <div className="flex items-center justify-between border-b-3 border-black pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 bg-black text-[#7DD3FC] border border-black flex items-center justify-center shadow-[1px_1px_0px_0px_#000]">
+                  <Building2 className="w-4 h-4 stroke-[2.5]" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black uppercase tracking-wider">
+                    Target Role You Want To Do
+                  </h2>
+                  <span className="text-[10px] font-bold text-black/60 uppercase">
+                    Select a tech titan or configure a custom position
+                  </span>
+                </div>
+              </div>
+
+              <span className="px-2.5 py-1 bg-[#BAE6FD] border border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                {currentTargetJob.company}
+              </span>
+            </div>
+
+            {/* Company Preset Buttons */}
+            <div>
+              <span className="text-[11px] font-black uppercase text-black/60 tracking-wider block mb-2">
+                Quick Select Company Preset:
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {TARGET_JOB_PRESETS.map((preset, idx) => (
+                  <button
+                    key={preset.company}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPresetIndex(idx);
+                      setIsCustomMode(false);
+                    }}
+                    className={`py-2 px-2.5 text-xs font-black uppercase tracking-wider border-2 border-black transition-all cursor-pointer truncate ${
+                      !isCustomMode && selectedPresetIndex === idx
+                        ? 'bg-[#7DD3FC] text-black shadow-[3px_3px_0px_0px_#000] -translate-y-0.5'
+                        : 'bg-white text-black hover:bg-[#F0F9FF] shadow-[1px_1px_0px_0px_#000]'
+                    }`}
+                  >
+                    🏢 {preset.company}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Target Role Card Details */}
+            <div className="p-4 bg-[#F0F9FF] border-2 border-black shadow-[3px_3px_0px_0px_#000] space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-black uppercase text-black">
+                    {currentTargetJob.role}
+                  </h3>
+                  <div className="flex items-center gap-3 text-xs text-black/80 font-bold mt-0.5">
+                    <span className="flex items-center gap-1">
+                      <Building2 className="w-3.5 h-3.5" /> {currentTargetJob.company}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5" /> {currentTargetJob.location}
+                    </span>
+                  </div>
+                </div>
+
+                <span className="text-xs font-black px-2 py-0.5 bg-[#BAE6FD] border border-black shadow-[1px_1px_0px_0px_#000] shrink-0">
+                  {currentTargetJob.salary}
+                </span>
+              </div>
+
+              <p className="text-xs font-bold text-black/80 line-clamp-3 leading-relaxed">
+                {currentTargetJob.description}
+              </p>
+
+              <div>
+                <span className="text-[10px] font-black uppercase text-black/60 block mb-1">
+                  Required Competencies:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {(currentTargetJob.requiredSkills || []).map((sk, idx) => (
+                    <span key={idx} className="px-2 py-0.5 bg-white border border-black text-[10px] font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                      {sk}
+                    </span>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Match Summary Prose */}
-            <div className="mt-6 bg-slate-50/80 rounded-2xl p-5 border border-slate-200">
-              <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                Match Analysis Summary
-              </h4>
-              <p className="text-sm text-gray-800 leading-relaxed font-sans">
-                {matchResult.match_summary}
+          </div>
+
+          {/* Primary Evaluate & Generate Roadmap CTA */}
+          <button
+            onClick={handleRunEvaluation}
+            disabled={analyzing}
+            className="w-full py-3.5 px-4 bg-black text-[#7DD3FC] hover:bg-[#7DD3FC] hover:text-black border-2 border-black font-black uppercase tracking-wider text-xs shadow-[4px_4px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            {analyzing ? (
+              <span className="animate-pulse">EVALUATING FIT & COMPILING ROADMAP...</span>
+            ) : (
+              <>
+                <Sparkles className="w-4 h-4 stroke-[2.5]" />
+                <span>EVALUATE FIT & GENERATE DUOLINGO ROADMAP</span>
+                <ArrowRight className="w-4 h-4 stroke-[3]" />
+              </>
+            )}
+          </button>
+        </div>
+
+      </div>
+
+      {/* ================= EVALUATION RESULTS ================= */}
+      {roadmap && (
+        <div className="space-y-10 pt-4">
+          
+          {/* 1. TOP MATCH SCORE & EXECUTIVE SUMMARY */}
+          <div className="bg-[#BAE6FD] border-4 border-black p-8 text-black shadow-[8px_8px_0px_0px_#000] flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-black text-[#7DD3FC] border-2 border-black text-xs font-black uppercase tracking-widest shadow-[2px_2px_0px_0px_#000]">
+                <Target className="w-3.5 h-3.5" /> Target Evaluation: {roadmap.targetJob.company}
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-black">
+                {roadmap.matchScore >= 80 ? '🔥 Highly Competitive Candidate' : '✨ Strong Potential with Clear Gaps'}
+              </h2>
+              <p className="text-xs sm:text-sm font-bold text-black/80 max-w-2xl leading-relaxed">
+                Matches {roadmap.matchedSkills.length} core competencies for the {roadmap.targetJob.role} role at {roadmap.targetJob.company}. 
+                Follow the customized Duolingo roadmap below to bridge {roadmap.missingSkills.length} critical requirement gaps.
               </p>
             </div>
+
+            <div className="bg-white border-3 border-black p-5 shadow-[4px_4px_0px_0px_#000] text-center shrink-0 min-w-[160px]">
+              <span className="text-[10px] uppercase font-black tracking-widest text-black/60 block">
+                Overall Alignment
+              </span>
+              <span className="text-5xl font-black text-black leading-none block my-1">
+                {roadmap.matchScore}%
+              </span>
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-[#BAE6FD] border border-black shadow-[1px_1px_0px_0px_#000] inline-block">
+                {roadmap.matchScore >= 80 ? 'Interview Ready' : 'Upskilling Needed'}
+              </span>
+            </div>
           </div>
 
-          {/* ===================================================================== */}
-          {/* Card 2: Career Verdict & Immediate Next Step Banner                   */}
-          {/* ===================================================================== */}
-          <div className="rounded-3xl bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl border border-indigo-900/50 space-y-6">
-            <div className="flex items-center gap-2 text-indigo-400 text-xs font-bold uppercase tracking-wider">
-              <Award className="w-4 h-4 text-indigo-400" />
-              Strategic Career Verdict
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Strengths */}
-              <div className="bg-white/5 rounded-2xl p-5 border border-white/10 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
-                  <CheckCircle className="w-4 h-4 text-emerald-400" /> Key Candidate Strengths
-                </h4>
-                <ul className="space-y-2 text-xs text-slate-200">
-                  {matchResult.career_verdict?.strengths?.map((str, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-emerald-400 font-bold shrink-0">✓</span>
-                      <span>{str}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              {/* Biggest Gaps */}
-              <div className="bg-white/5 rounded-2xl p-5 border border-white/10 space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-1.5">
-                  <AlertCircle className="w-4 h-4 text-rose-400" /> Primary Skill Gaps to Address
-                </h4>
-                <ul className="space-y-2 text-xs text-slate-200">
-                  {matchResult.career_verdict?.biggest_gaps?.map((gap, i) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="text-rose-400 font-bold shrink-0">✕</span>
-                      <span>{gap}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-
-            {/* Most Important Next Step Highlight */}
-            {matchResult.career_verdict?.next_step && (
-              <div className="p-4 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-start gap-3">
-                <Compass className="w-5 h-5 text-indigo-300 shrink-0 mt-0.5" />
-                <div>
-                  <h5 className="text-xs font-bold text-indigo-300 uppercase tracking-wider mb-1">
-                    Most Important Next Step
-                  </h5>
-                  <p className="text-sm font-semibold text-white leading-relaxed">
-                    {matchResult.career_verdict.next_step}
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ===================================================================== */}
-          {/* Card 3: Skills Alignment Matrix (Matched / Partial / Missing)          */}
-          {/* ===================================================================== */}
-          <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-sm space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <Layers className="w-5 h-5 text-indigo-600" />
-                  Skills Alignment Matrix
+          {/* 2. SKILL ALIGNMENT MATRIX */}
+          <div className="bg-white border-4 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#000] space-y-4">
+            <div className="flex items-center justify-between border-b-3 border-black pb-3">
+              <div className="flex items-center gap-2">
+                <Layers className="w-5 h-5" />
+                <h3 className="text-lg font-black uppercase tracking-wider">
+                  Skill Alignment Matrix
                 </h3>
-                <p className="text-xs text-gray-500">
-                  Detailed verification comparing requirements against actual resume evidence.
-                </p>
               </div>
-
-              {/* Tabs */}
-              <div className="flex gap-1.5 p-1 bg-gray-100 rounded-xl">
-                <button
-                  onClick={() => setActiveSkillTab('all')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeSkillTab === 'all' ? 'bg-white text-indigo-700 shadow-xs' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setActiveSkillTab('matched')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeSkillTab === 'matched' ? 'bg-emerald-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Matched ({matchResult.matched_skills?.length || 0})
-                </button>
-                <button
-                  onClick={() => setActiveSkillTab('partial')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeSkillTab === 'partial' ? 'bg-amber-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Partial ({matchResult.partially_matched_skills?.length || 0})
-                </button>
-                <button
-                  onClick={() => setActiveSkillTab('missing')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                    activeSkillTab === 'missing' ? 'bg-rose-600 text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Missing ({matchResult.missing_skills?.length || 0})
-                </button>
-              </div>
+              <span className="text-xs font-black uppercase text-black/60">
+                Target: {roadmap.targetJob.company}
+              </span>
             </div>
 
-            {/* Matched Skills Grid */}
-            {(activeSkillTab === 'all' || activeSkillTab === 'matched') && (
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  Verified Matched Skills ({matchResult.matched_skills?.length || 0})
-                </h4>
-                {matchResult.matched_skills && matchResult.matched_skills.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {matchResult.matched_skills.map((item, idx) => {
-                      const skillName = typeof item === 'string' ? item : item.skill;
-                      const type = item.type || 'Required';
-                      const evidence = item.evidence || 'Demonstrated in resume experience.';
-                      const relevance = item.relevance || 'Direct match for role requirement.';
-
-                      return (
-                        <div key={idx} className="p-4 rounded-2xl bg-emerald-50/40 border border-emerald-100 space-y-1.5">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-gray-900 text-sm">{skillName}</span>
-                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
-                              type === 'Required' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-700'
-                            }`}>
-                              {type}
-                            </span>
-                          </div>
-                          <p className="text-xs text-emerald-800 font-medium leading-relaxed">
-                            <span className="text-gray-500 font-normal">Evidence: </span>{evidence}
-                          </p>
-                          {relevance && (
-                            <p className="text-[11px] text-gray-600 italic">
-                              {relevance}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-400 italic">No fully matched skills identified.</p>
-                )}
-              </div>
-            )}
-
-            {/* Partially Matched Skills Grid */}
-            {(activeSkillTab === 'all' || activeSkillTab === 'partial') && (
-              <div className="space-y-3 pt-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-amber-700 flex items-center gap-1.5">
-                  <Zap className="w-4 h-4 text-amber-600" />
-                  Partially Matched Skills ({matchResult.partially_matched_skills?.length || 0})
-                </h4>
-                {matchResult.partially_matched_skills && matchResult.partially_matched_skills.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {matchResult.partially_matched_skills.map((item, idx) => {
-                      const skillName = typeof item === 'string' ? item : item.skill;
-                      const candidateHas = item.candidate_has || 'Basic foundational exposure';
-                      const jobRequires = item.job_requires || 'Production-level depth';
-                      const gap = item.gap_explanation || 'Lacks advanced production depth.';
-
-                      return (
-                        <div key={idx} className="p-4 rounded-2xl bg-amber-50/40 border border-amber-100 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-gray-900 text-sm">{skillName}</span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 uppercase">
-                              Partial
-                            </span>
-                          </div>
-                          <div className="space-y-1 text-xs">
-                            <p className="text-gray-700">
-                              <span className="font-semibold text-gray-900">You have:</span> {candidateHas}
-                            </p>
-                            <p className="text-gray-700">
-                              <span className="font-semibold text-gray-900">Job requires:</span> {jobRequires}
-                            </p>
-                            <p className="text-amber-800 font-medium pt-1 border-t border-amber-100/60">
-                              <span className="font-semibold">Gap:</span> {gap}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-xs text-gray-400 italic">No partial skill matches.</p>
-                )}
-              </div>
-            )}
-
-            {/* Missing Skills Grid with Priority */}
-            {(activeSkillTab === 'all' || activeSkillTab === 'missing') && (
-              <div className="space-y-3 pt-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-rose-700 flex items-center gap-1.5">
-                  <ShieldAlert className="w-4 h-4 text-rose-600" />
-                  Missing Skills & Requirements ({matchResult.missing_skills?.length || 0})
-                </h4>
-                {matchResult.missing_skills && matchResult.missing_skills.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {matchResult.missing_skills.map((item, idx) => {
-                      const skillName = typeof item === 'string' ? item : item.skill;
-                      const priority = item.priority || 'High';
-                      const type = item.type || 'Required';
-                      const reason = item.reason || 'Not found in resume.';
-                      const impact = item.impact || 'Limits candidate competitiveness.';
-
-                      return (
-                        <div key={idx} className="p-4 rounded-2xl bg-rose-50/40 border border-rose-100 space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-gray-900 text-sm">{skillName}</span>
-                            <div className="flex items-center gap-1.5">
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getPriorityBadge(priority)}`}>
-                                {priority}
-                              </span>
-                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-100 text-gray-700 uppercase">
-                                {type}
-                              </span>
-                            </div>
-                          </div>
-                          <p className="text-xs text-rose-900 leading-relaxed">
-                            <span className="font-semibold text-rose-950">Status: </span>
-                            {reason}
-                          </p>
-                          {impact && (
-                            <p className="text-[11px] text-gray-600">
-                              <span className="font-semibold text-gray-700">Impact: </span>
-                              {impact}
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-emerald-600" />
-                    All target skills and requirements are covered!
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* ===================================================================== */}
-          {/* Card 4: Top Focus Priorities                                         */}
-          {/* ===================================================================== */}
-          {matchResult.top_priorities && matchResult.top_priorities.length > 0 && (
-            <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-sm space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                    <Target className="w-5 h-5 text-indigo-600" />
-                    Top Skills to Focus on First
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Highest-leverage areas that will yield the biggest boost in role alignment.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                {matchResult.top_priorities.map((item, idx) => {
-                  const skill = typeof item === 'string' ? item : item.skill;
-                  const priority = item.priority || 'Critical';
-                  const whyFirst = item.why_first || 'Primary blocker for candidate screening.';
-                  const time = item.estimated_time || '1-2 weeks';
-
-                  return (
-                    <div key={idx} className="p-5 rounded-2xl bg-indigo-50/50 border border-indigo-100 flex flex-col justify-between space-y-3 relative overflow-hidden">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="w-6 h-6 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
-                            {idx + 1}
-                          </span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${getPriorityBadge(priority)}`}>
-                            {priority}
-                          </span>
-                        </div>
-                        <h4 className="text-base font-bold text-indigo-950">{skill}</h4>
-                        <p className="text-xs text-gray-700 leading-relaxed font-sans">{whyFirst}</p>
-                      </div>
-
-                      <div className="pt-2 border-t border-indigo-100 flex items-center justify-between text-[11px] text-gray-500">
-                        <span className="flex items-center gap-1 text-indigo-700 font-medium">
-                          <Clock className="w-3.5 h-3.5 text-indigo-600" /> {time}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-serif">
+                <thead>
+                  <tr className="border-b-2 border-black uppercase font-black text-black">
+                    <th className="py-2.5">Competency / Skill</th>
+                    <th className="py-2.5">Target Expectation</th>
+                    <th className="py-2.5">Candidate Evidence</th>
+                    <th className="py-2.5 text-right">Alignment Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y-2 divide-black text-black">
+                  {roadmap.alignmentMatrix.map((item, idx) => (
+                    <tr key={idx} className="hover:bg-[#F0F9FF] transition-colors">
+                      <td className="py-3 font-black uppercase text-xs">{item.skill}</td>
+                      <td className="py-3 font-bold text-black/70">{item.targetExpectation}</td>
+                      <td className="py-3 font-bold">{item.candidateLevel}</td>
+                      <td className="py-3 text-right">
+                        <span className={`px-2.5 py-1 text-[10px] font-black uppercase border-2 border-black shadow-[1px_1px_0px_0px_#000] ${item.badgeColor}`}>
+                          {item.status}
                         </span>
-                        <span>Phase 1 Focus</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
+          </div>
 
-          {/* ===================================================================== */}
-          {/* Card 5: Step-by-Step Action Plan                                     */}
-          {/* ===================================================================== */}
-          {matchResult.action_plan && matchResult.action_plan.length > 0 && (
-            <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-sm space-y-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <BookOpen className="w-5 h-5 text-indigo-600" />
-                  Specific Learning & Action Plan
+          {/* 3 & 4. PARTIALLY MATCHED & MISSING REQUIREMENTS */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            {/* Partially Matched Skills */}
+            <div className="bg-white border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000] space-y-4">
+              <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-black">
+                <AlertTriangle className="w-5 h-5 text-amber-600 stroke-[2.5]" />
+                <h3 className="text-sm font-black uppercase tracking-wider">
+                  Partially Matched Skills (Upgrade Needed)
                 </h3>
-                <p className="text-xs text-gray-500">
-                  Targeted, sequential roadmap designed to eliminate identified skill gaps.
-                </p>
               </div>
 
-              <div className="space-y-3 pt-2">
-                {matchResult.action_plan.map((step, idx) => {
-                  const stepNum = step.step || idx + 1;
-                  const title = step.title || `Action Step ${stepNum}`;
-                  const timeline = step.timeline || `Week ${idx + 1}`;
-                  const desc = step.description || (typeof step === 'string' ? step : '');
-                  const resources = step.resources || '';
-
-                  return (
-                    <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row items-start gap-4">
-                      <div className="flex items-center gap-3 shrink-0">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white font-bold text-sm flex items-center justify-center shadow-xs">
-                          {stepNum}
-                        </div>
-                        <div className="sm:hidden">
-                          <span className="px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-bold">
-                            {timeline}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-center justify-between">
-                          <h5 className="font-bold text-gray-900 text-sm">{title}</h5>
-                          <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[11px] font-bold">
-                            {timeline}
-                          </span>
-                        </div>
-                        <p className="text-xs text-gray-700 leading-relaxed font-sans">{desc}</p>
-                        {resources && (
-                          <p className="text-[11px] text-indigo-700 pt-1 font-medium flex items-center gap-1">
-                            <span className="text-gray-400 font-normal">Resources:</span> {resources}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ===================================================================== */}
-          {/* Card 6: Recommended Projects to Close Gaps                           */}
-          {/* ===================================================================== */}
-          {matchResult.recommended_projects && matchResult.recommended_projects.length > 0 && (
-            <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-sm space-y-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <Code className="w-5 h-5 text-indigo-600" />
-                  Recommended Projects to Prove Competency
-                </h3>
-                <p className="text-xs text-gray-500">
-                  Practical projects designed to showcase the missing skills directly on your resume.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                {matchResult.recommended_projects.map((proj, idx) => {
-                  const title = proj.title || (typeof proj === 'string' ? proj : 'Practical Portfolio Project');
-                  const desc = proj.description || '';
-                  const skills = Array.isArray(proj.skills_demonstrated) ? proj.skills_demonstrated : [];
-                  const why = proj.why_it_helps || '';
-
-                  return (
-                    <div key={idx} className="p-5 rounded-2xl bg-purple-50/40 border border-purple-100 flex flex-col justify-between space-y-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <span className="p-1.5 rounded-lg bg-purple-100 text-purple-700">
-                            <Code className="w-4 h-4" />
-                          </span>
-                          <h4 className="font-bold text-gray-900 text-sm">{title}</h4>
-                        </div>
-                        <p className="text-xs text-gray-700 leading-relaxed font-sans">{desc}</p>
-
-                        {skills.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5 pt-1">
-                            {skills.map((s, si) => (
-                              <span key={si} className="px-2 py-0.5 rounded-md bg-white border border-purple-200 text-purple-700 text-[10px] font-bold">
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {why && (
-                        <div className="pt-2 border-t border-purple-100 text-[11px] text-purple-900 font-medium">
-                          <span className="text-gray-500 font-normal">Why recruiters value this: </span>{why}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* ===================================================================== */}
-          {/* Card 7: Resume Improvement Suggestions                               */}
-          {/* ===================================================================== */}
-          {matchResult.resume_improvements && matchResult.resume_improvements.length > 0 && (
-            <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-sm space-y-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-indigo-600" />
-                  Resume Improvement Suggestions
-                </h3>
-                <p className="text-xs text-gray-500">
-                  Targeted rewrites to highlight relevance and bypass applicant tracking systems (ATS).
-                </p>
-              </div>
-
-              <div className="space-y-4 pt-2">
-                {matchResult.resume_improvements.map((item, idx) => {
-                  const section = item.section || 'Experience';
-                  const issue = item.issue || (typeof item === 'string' ? item : '');
-                  const rec = item.recommendation || '';
-                  const exampleBullet = item.example_bullet || '';
-
-                  return (
-                    <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2.5">
+              {roadmap.partiallyMatched.length === 0 ? (
+                <p className="text-xs font-bold text-black/70">No partial matches — all required foundations are either fully matched or missing.</p>
+              ) : (
+                <div className="space-y-3">
+                  {roadmap.partiallyMatched.map((p, idx) => (
+                    <div key={idx} className="p-3.5 bg-[#FEF08A]/40 border-2 border-black shadow-[3px_3px_0px_0px_#000] space-y-1">
                       <div className="flex items-center justify-between">
-                        <span className="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-xs font-bold">
-                          {section} Section
+                        <span className="font-black text-xs uppercase">{p.skill}</span>
+                        <span className="text-[10px] font-black uppercase bg-[#FEF08A] px-2 py-0.5 border border-black shadow-[1px_1px_0px_0px_#000]">
+                          Partial Fit
                         </span>
-                        {exampleBullet && (
-                          <button
-                            onClick={() => handleCopyBullet(exampleBullet, idx)}
-                            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
-                          >
-                            {copiedBulletIdx === idx ? (
-                              <>
-                                <Check className="w-3 h-3 text-emerald-600" /> Copied!
-                              </>
-                            ) : (
-                              <>
-                                <Copy className="w-3 h-3" /> Copy Example Bullet
-                              </>
-                            )}
-                          </button>
-                        )}
                       </div>
-
-                      {issue && (
-                        <p className="text-xs text-gray-600">
-                          <span className="font-semibold text-gray-800">Identified Issue:</span> {issue}
-                        </p>
-                      )}
-
-                      {rec && (
-                        <p className="text-xs text-indigo-950 font-medium">
-                          <span className="font-semibold text-indigo-900">Recommendation:</span> {rec}
-                        </p>
-                      )}
-
-                      {exampleBullet && (
-                        <div className="p-3 rounded-xl bg-white border border-gray-200 font-mono text-xs text-gray-800 leading-relaxed shadow-2xs">
-                          <span className="text-indigo-600 font-bold mr-1.5">•</span>
-                          {exampleBullet}
-                        </div>
-                      )}
+                      <p className="text-[11px] font-bold text-black/80">{p.currentBasis}</p>
+                      <p className="text-xs font-bold text-black leading-relaxed">
+                        <strong>Action:</strong> {p.gapNotes}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
 
-          {/* ===================================================================== */}
-          {/* Card 8: Interview Preparation Topics & Questions                     */}
-          {/* ===================================================================== */}
-          {matchResult.interview_preparation && matchResult.interview_preparation.length > 0 && (
-            <div className="bg-white rounded-3xl border border-gray-200 p-6 sm:p-8 shadow-sm space-y-4">
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  <Brain className="w-5 h-5 text-indigo-600" />
-                  Interview Topics & Questions to Prepare
+            {/* Missing Skills & Requirements */}
+            <div className="bg-white border-4 border-black p-6 shadow-[6px_6px_0px_0px_#000] space-y-4">
+              <div className="flex items-center gap-2 border-b-2 border-black pb-2 text-black">
+                <ShieldAlert className="w-5 h-5 text-rose-600 stroke-[2.5]" />
+                <h3 className="text-sm font-black uppercase tracking-wider">
+                  Missing Skills & Requirements (Gaps)
                 </h3>
-                <p className="text-xs text-gray-500">
-                  Anticipated technical and architectural questions specific to this role and your profile.
-                </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-                {matchResult.interview_preparation.map((prep, idx) => {
-                  const topic = prep.topic || (typeof prep === 'string' ? prep : 'Technical Round');
-                  const question = prep.sample_question || '';
-                  const talkingPoints = prep.talking_points || '';
-
-                  return (
-                    <div key={idx} className="p-4 rounded-2xl bg-indigo-50/40 border border-indigo-100 space-y-2">
-                      <span className="px-2.5 py-0.5 rounded-md bg-indigo-100 text-indigo-800 text-[10px] font-bold uppercase">
-                        {topic}
-                      </span>
-                      {question && (
-                        <p className="text-xs font-bold text-gray-900 leading-snug">
-                          "{question}"
-                        </p>
-                      )}
-                      {talkingPoints && (
-                        <p className="text-xs text-indigo-900 font-medium pt-1 border-t border-indigo-100 font-sans">
-                          <span className="text-gray-500 font-normal">Key Talking Points: </span>
-                          {talkingPoints}
-                        </p>
-                      )}
+              {roadmap.missingSkills.length === 0 ? (
+                <p className="text-xs font-bold text-black/70">No missing skills detected! You meet all mandatory qualifications.</p>
+              ) : (
+                <div className="space-y-3">
+                  {roadmap.missingSkills.slice(0, 4).map((m, idx) => (
+                    <div key={idx} className="p-3.5 bg-[#FECDD3]/40 border-2 border-black shadow-[3px_3px_0px_0px_#000] space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-black text-xs uppercase text-rose-900">{m.skill}</span>
+                        <span className="text-[10px] font-black uppercase bg-[#FECDD3] px-2 py-0.5 border border-black shadow-[1px_1px_0px_0px_#000]">
+                          {m.priority}
+                        </span>
+                      </div>
+                      <p className="text-xs font-bold text-black leading-relaxed">
+                        {m.impact}
+                      </p>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
 
+          </div>
+
+          {/* 5. TOP SKILLS TO FOCUS ON */}
+          <div className="bg-[#BAE6FD] border-4 border-black p-6 sm:p-8 shadow-[6px_6px_0px_0px_#000] space-y-4">
+            <div className="flex items-center justify-between border-b-2 border-black pb-2">
+              <h3 className="text-base font-black uppercase tracking-wider flex items-center gap-2">
+                <Zap className="w-5 h-5" /> Top Skills To Focus On
+              </h3>
+              <span className="text-xs font-black uppercase bg-white border border-black px-2.5 py-0.5 shadow-[1px_1px_0px_0px_#000]">
+                Ranked by Hiring Impact
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {roadmap.topFocusSkills.map((focus, idx) => (
+                <div key={idx} className="bg-white border-3 border-black p-5 shadow-[4px_4px_0px_0px_#000] flex flex-col justify-between space-y-3">
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase px-2 py-0.5 bg-black text-[#7DD3FC] border border-black shadow-[1px_1px_0px_0px_#000]">
+                        #{idx + 1} Priority
+                      </span>
+                      <span className="text-[10px] font-black uppercase text-black/60">
+                        {focus.timeEstimate}
+                      </span>
+                    </div>
+
+                    <h4 className="text-base font-black uppercase text-black">
+                      {focus.name}
+                    </h4>
+
+                    <p className="text-xs font-bold text-black/80 leading-relaxed">
+                      {focus.reason}
+                    </p>
+                  </div>
+
+                  <div className="pt-2 border-t border-black/20 text-[10px] font-black uppercase text-black flex items-center gap-1">
+                    <span>Target: {roadmap.targetJob.company} L5 Readiness</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 6. GAMIFIED DUOLINGO LEARNING PATH */}
+          <div className="bg-white border-4 border-black p-6 sm:p-10 shadow-[8px_8px_0px_0px_#000] space-y-10">
+            
+            {/* Duolingo Board Header */}
+            <div className="text-center space-y-2 border-b-4 border-black pb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-1 bg-[#7DD3FC] text-black border-2 border-black text-xs font-black uppercase tracking-widest shadow-[3px_3px_0px_0px_#000]">
+                <Award className="w-4 h-4 stroke-[2.5]" /> Interactive Duolingo Action Roadmap
+              </div>
+              <h2 className="text-3xl sm:text-4xl font-black uppercase tracking-tight text-black">
+                Path to {roadmap.targetJob.company} {roadmap.targetJob.role.split(' ')[0]}
+              </h2>
+              <p className="text-xs sm:text-sm font-bold text-black/70 max-w-xl mx-auto leading-relaxed">
+                Click any stepping stone node to inspect lesson milestones, practice concrete action items, 
+                and earn XP to advance through units.
+              </p>
+            </div>
+
+            {/* Units & Winding Path */}
+            <div className="space-y-12 max-w-2xl mx-auto">
+              {roadmap.units.map((unit) => (
+                <div key={unit.unitNumber} className="space-y-6">
+                  
+                  {/* Unit Banner */}
+                  <div 
+                    className="p-5 border-4 border-black shadow-[6px_6px_0px_0px_#000] space-y-1 text-black"
+                    style={{ backgroundColor: unit.themeColor }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase tracking-widest bg-black text-white px-2.5 py-0.5 border border-black shadow-[1px_1px_0px_0px_#000]">
+                        Unit {unit.unitNumber}
+                      </span>
+                      <span className="text-xs font-black uppercase">
+                        {unit.nodes.filter(n => completedNodes.includes(n.id)).length} / {unit.nodes.length} Completed
+                      </span>
+                    </div>
+                    <h3 className="text-xl font-black uppercase text-black">
+                      {unit.title}
+                    </h3>
+                    <p className="text-xs font-bold text-black/80">
+                      {unit.description}
+                    </p>
+                  </div>
+
+                  {/* Winding Stepping Stone Nodes */}
+                  <div className="flex flex-col items-center space-y-8 py-4 relative">
+                    
+                    {/* Connecting dotted centerline */}
+                    <div className="absolute top-4 bottom-4 w-1 border-r-2 border-dashed border-black/40 z-0"></div>
+
+                    {unit.nodes.map((node, nodeIdx) => {
+                      const isCompleted = completedNodes.includes(node.id);
+                      const isCurrent = !isCompleted && (nodeIdx === 0 || completedNodes.includes(unit.nodes[nodeIdx - 1]?.id));
+
+                      // Winding offset pattern: center -> left -> right -> center
+                      const offsetClasses = [
+                        'self-center',
+                        'self-start ml-4 sm:ml-12',
+                        'self-end mr-4 sm:mr-12'
+                      ][nodeIdx % 3];
+
+                      return (
+                        <div key={node.id} className={`flex flex-col items-center z-10 ${offsetClasses}`}>
+                          
+                          {/* Stepping Stone Node Button */}
+                          <button
+                            type="button"
+                            onClick={() => setActiveNodeModal(node)}
+                            className={`w-20 h-20 rounded-full border-4 border-black flex flex-col items-center justify-center transition-all cursor-pointer relative group ${
+                              isCompleted
+                                ? 'bg-[#86EFAC] text-black shadow-[4px_4px_0px_0px_#000] hover:scale-105 active:translate-y-1'
+                                : isCurrent
+                                ? 'bg-[#7DD3FC] text-black shadow-[6px_6px_0px_0px_#000] scale-110 animate-bounce active:translate-y-1'
+                                : 'bg-[#E2E8F0] text-black/40 shadow-[3px_3px_0px_0px_#000] hover:scale-100'
+                            }`}
+                          >
+                            {isCompleted ? (
+                              <Check className="w-8 h-8 stroke-[3.5] text-black" />
+                            ) : isCurrent ? (
+                              <Star className="w-8 h-8 text-black fill-black" />
+                            ) : (
+                              <Lock className="w-6 h-6 text-black/40" />
+                            )}
+
+                            {/* Node XP indicator pill */}
+                            <span className="absolute -bottom-2 px-2 py-0.5 bg-black text-[#7DD3FC] border border-black text-[9px] font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                              +{node.xp} XP
+                            </span>
+                          </button>
+
+                          {/* Node Title & Subtitle Badge */}
+                          <div className="text-center mt-3 max-w-[200px]">
+                            <span className="text-xs font-black uppercase text-black block leading-tight">
+                              {node.title}
+                            </span>
+                            <span className="text-[10px] font-bold text-black/60 truncate block mt-0.5">
+                              {node.subtitle}
+                            </span>
+                          </div>
+
+                        </div>
+                      );
+                    })}
+
+                  </div>
+
+                </div>
+              ))}
+            </div>
+
+          </div>
+
+        </div>
+      )}
+
+      {/* ================= ACTIVE NODE DETAIL MODAL ================= */}
+      {activeNodeModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border-4 border-black shadow-[10px_10px_0px_0px_#000] w-full max-w-lg p-6 sm:p-8 space-y-6">
+            
+            <div className="flex items-center justify-between border-b-3 border-black pb-3">
+              <div className="flex items-center gap-2">
+                <Award className="w-6 h-6 text-black" />
+                <div>
+                  <span className="text-[10px] font-black uppercase tracking-wider text-black/60 block">
+                    Duolingo Milestone
+                  </span>
+                  <h3 className="text-lg font-black uppercase tracking-tight text-black">
+                    {activeNodeModal.title}
+                  </h3>
+                </div>
+              </div>
+
+              <span className="px-2.5 py-1 bg-[#BAE6FD] border-2 border-black text-xs font-black uppercase shadow-[2px_2px_0px_0px_#000]">
+                +{activeNodeModal.xp} XP
+              </span>
+            </div>
+
+            <div className="space-y-3 bg-[#F0F9FF] p-4 border-2 border-black shadow-[3px_3px_0px_0px_#000]">
+              <span className="text-xs font-black uppercase text-black block tracking-wider">
+                Actionable Engineering Task:
+              </span>
+              <p className="text-xs font-bold text-black leading-relaxed">
+                {activeNodeModal.actionItem}
+              </p>
+            </div>
+
+            <div className="text-xs font-bold text-black/70">
+              Complete this hands-on engineering lab or code scenario to unlock the next stepping stone on your roadmap toward {currentTargetJob.company}.
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t-2 border-black">
+              <button
+                type="button"
+                onClick={() => setActiveNodeModal(null)}
+                className="px-5 py-2.5 bg-white hover:bg-[#E0F2FE] border-2 border-black text-xs font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_#000] cursor-pointer"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleToggleNodeCompletion(activeNodeModal)}
+                className={`px-6 py-2.5 border-2 border-black text-xs font-black uppercase tracking-wider shadow-[4px_4px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-2 ${
+                  completedNodes.includes(activeNodeModal.id)
+                    ? 'bg-[#FECDD3] text-black hover:bg-rose-300'
+                    : 'bg-black text-[#7DD3FC] hover:bg-[#7DD3FC] hover:text-black'
+                }`}
+              >
+                <Check className="w-4 h-4 stroke-[3]" />
+                {completedNodes.includes(activeNodeModal.id) ? 'Mark Incomplete' : 'Complete Lesson & Claim XP'}
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Upload, FileText, CheckCircle2, AlertCircle, Sparkles, Filter, 
-  ArrowUpDown, Search, UserCheck, UserX, RefreshCw, Eye, Award, Check, X
+  Upload, FileText, CheckCircle2, AlertCircle, Sparkles, 
+  Search, UserCheck, UserX, RefreshCw, Eye, Award
 } from 'lucide-react';
 import { 
   getCandidatesForJob, 
@@ -12,7 +12,6 @@ import {
 import { analyzeAndScoreCandidate } from '../../lib/ai';
 import CandidateDetailsModal from './CandidateDetailsModal';
 
-// High quality test candidate profiles ready to analyze with 1 click
 const SAMPLE_TEST_CANDIDATES = [
   {
     fileName: 'Aarav_Sharma_AI_Lead.pdf',
@@ -74,6 +73,54 @@ PROJECTS
 - Real-time Redis Pub/Sub notification service handling 10k concurrent WebSockets.`
   },
   {
+    fileName: 'Elena_Rostova_ML_Architect.pdf',
+    text: `Elena Rostova
+elena.rostova@example.com | San Jose, CA | github.com/erostova
+
+SUMMARY
+Machine Learning Systems Engineer with 4.5 years experience scaling GPU clusters, containerized model inference, and distributed training pipelines.
+
+TECHNICAL SKILLS
+- Languages: Python, C++, Bash
+- ML & Deep Learning: PyTorch, Ray, CUDA, Triton Inference Server, vLLM
+- Infrastructure & Storage: Kubernetes, Docker, PostgreSQL, Redis, GCP (Vertex AI, GKE)
+
+WORK EXPERIENCE
+ML Systems Engineer | HyperScale AI (2021 - Present)
+- Deployed high-throughput LLM inference pods on Kubernetes handling 12k concurrent users.
+- Automated GPU cluster utilization using Ray and Docker containerization.
+- Integrated PostgreSQL and Redis caching for model telemetry and prompt storage.
+
+Junior ML Engineer | VisionTech Labs (2019 - 2021)
+- Built computer vision pipelines using PyTorch and OpenCV.
+
+EDUCATION
+M.S. in Electrical & Computer Engineering | UIUC (2017 - 2019)`
+  },
+  {
+    fileName: 'Marcus_Vance_DevOps_Cloud.pdf',
+    text: `Marcus Vance
+marcus.vance@example.com | Denver, CO | linkedin.com/in/marcusvance
+
+SUMMARY
+Senior Cloud & Site Reliability Engineer with 6 years experience building resilient infrastructure on AWS, managing multi-tenant Kubernetes clusters, and automating CI/CD.
+
+SKILLS
+AWS (EKS, EC2, RDS, IAM, S3), Kubernetes, Terraform, Docker, Python (scripting & automation), PostgreSQL, Prometheus, Grafana, Linux, Git.
+
+WORK HISTORY
+Senior Cloud Infrastructure Engineer | CloudBridge Solutions (2020 - Present)
+- Architected multi-region AWS EKS Kubernetes clusters serving enterprise SaaS workloads.
+- Automated infrastructure provisioning with Terraform and GitOps workflows.
+- Managed PostgreSQL database replication and automated snapshotting.
+
+Systems Engineer | Denver Cloud Ops (2018 - 2020)
+- Containerized legacy applications using Docker and configured CI/CD deployment pipelines.
+
+EDUCATION
+B.S. in Computer Science | University of Colorado Boulder (2014 - 2018)`
+  },
+  {
     fileName: 'Rahul_Singh_FullStack_Engineer.pdf',
     text: `Rahul Singh
 rahul.singh@example.com | Austin, TX
@@ -96,137 +143,72 @@ Junior Web Developer | DevStudio (2018 - 2020)
 
 EDUCATION
 Bachelor of Science in Information Technology | Texas A&M (2014 - 2018)`
-  },
-  {
-    fileName: 'Aisha_Patel_Data_Scientist.pdf',
-    text: `Aisha Patel
-aisha.patel@example.com | New York, NY
-
-SUMMARY
-Data Scientist & ML Specialist with 3.5 years experience in predictive modeling, PyTorch, and NLP.
-
-SKILLS
-Python, PyTorch, Pandas, Scikit-learn, Vector embeddings, Jupyter, SQL, HuggingFace.
-Basic Docker usage; limited backend web framework (FastAPI) or cloud infrastructure (AWS/K8s) experience.
-
-EXPERIENCE
-Machine Learning Engineer | Cognition Analytics (2021 - Present)
-- Fine-tuned transformer models for domain-specific text classification.
-- Implemented RAG pipelines using LangChain and Pinecone vector store.
-
-Data Analyst | Insight Labs (2020 - 2021)
-- Created business intelligence dashboards and statistical reports.
-
-EDUCATION
-Master of Science in Data Science | Columbia University (2019 - 2020)
-Bachelor of Science in Mathematics | NYU (2015 - 2019)`
-  },
-  {
-    fileName: 'Vikram_Rao_Junior_Dev.pdf',
-    text: `Vikram Rao
-vikram.rao@example.com | Chicago, IL
-
-SUMMARY
-Enthusiastic Junior Developer with 1.5 years experience in Python scripting and automated testing.
-
-SKILLS
-Python, SQLite, Git, Linux, Bash scripting, HTML, Unit testing.
-Eager to learn AWS, Docker, Kubernetes, and FastAPI.
-
-EXPERIENCE
-Junior Software Developer | CodeWave Solutions (2023 - Present)
-- Wrote automated Python test scripts and QA suites.
-- Assisted senior developers with bug fixes in legacy codebases.
-
-EDUCATION
-Bachelor of Science in Computer Science | University of Illinois Chicago (2019 - 2023)`
   }
 ];
 
 export default function CandidateRanker({ job, recruiterId, onBack }) {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedCandidate, setSelectedCandidate] = useState(null);
-
-  // Upload and Batch Processing State
-  const [uploadQueue, setUploadQueue] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [processingStats, setProcessingStats] = useState({ total: 0, completed: 0, failed: 0 });
+  const [uploadQueue, setUploadQueue] = useState([]);
   const [failedCandidates, setFailedCandidates] = useState([]);
+  const [processingStats, setProcessingStats] = useState({ total: 0, completed: 0, failed: 0 });
 
-  // Filters & Search
+  // Filters & sorting
   const [searchQuery, setSearchQuery] = useState('');
-  const [scoreFilter, setScoreFilter] = useState('ALL'); // 'ALL', 'STRONG', 'GOOD', 'LOW'
-  const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'SHORTLISTED', 'REJECTED', 'ANALYZED'
-  const [sortBy, setSortBy] = useState('MATCH_DESC'); // 'MATCH_DESC', 'MATCH_ASC', 'NAME'
+  const [scoreFilter, setScoreFilter] = useState('ALL'); // ALL, STRONG, GOOD, LOW
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [sortBy, setSortBy] = useState('MATCH_DESC'); // MATCH_DESC, MATCH_ASC, NAME
 
+  const [selectedCandidate, setSelectedCandidate] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Load candidates for this job
   const loadJobCandidates = async () => {
+    if (!job?.id || !recruiterId) return;
     setLoading(true);
     try {
       const data = await getCandidatesForJob(job.id, recruiterId);
       setCandidates(data);
     } catch (err) {
-      console.error('Failed to load candidates:', err);
+      console.error('Failed to load job candidates:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (job?.id && recruiterId) {
-      loadJobCandidates();
-    }
+    loadJobCandidates();
   }, [job?.id, recruiterId]);
 
-  // Read file text content helper
-  const readFileText = (file) => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result || '');
-      reader.onerror = () => resolve('');
-      reader.readAsText(file);
-    });
-  };
-
-  // Handle file uploads (Drag & Drop or File Input)
   const handleFilesSelected = async (files) => {
     if (!files || files.length === 0) return;
-
-    const newQueue = [];
+    const items = [];
     for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const text = await readFileText(file);
-      newQueue.push({
-        file,
-        fileName: file.name,
-        text: text.length > 50 ? text : `Resume text for ${file.name}. Skills: Python, Docker, AWS.`
-      });
+      const f = files[i];
+      let textContent = '';
+      try {
+        textContent = await f.text();
+      } catch (e) {
+        textContent = `Resume text extracted from ${f.name}. Candidate possesses core technical skills in Python, backend development, and databases.`;
+      }
+      items.push({ fileName: f.name, text: textContent });
     }
-
-    setUploadQueue((prev) => [...prev, ...newQueue]);
+    setUploadQueue((prev) => [...prev, ...items]);
   };
 
-  // Load standard 5 test candidates for immediate demonstration
   const handleLoadTestCandidates = () => {
-    setUploadQueue((prev) => [...prev, ...SAMPLE_TEST_CANDIDATES]);
+    setUploadQueue(SAMPLE_TEST_CANDIDATES);
   };
 
-  // Analyze all uploaded candidates sequentially with live progress
   const handleAnalyzeQueue = async () => {
     if (uploadQueue.length === 0 || isProcessing) return;
-
     setIsProcessing(true);
-    const total = uploadQueue.length;
-    setProcessingStats({ total, completed: 0, failed: 0 });
-    const failedList = [];
+    setProcessingStats({ total: uploadQueue.length, completed: 0, failed: 0 });
 
+    const failedList = [];
     for (let i = 0; i < uploadQueue.length; i++) {
       const item = uploadQueue[i];
       try {
-        // 1. Register candidate resume metadata
         const savedCand = await registerCandidateResume({
           recruiterId,
           jobId: job.id,
@@ -234,14 +216,12 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
           extractedText: item.text
         });
 
-        // 2. Perform transparent AI scoring and extraction
         const analysis = await analyzeAndScoreCandidate({
           resumeText: item.text,
           fileName: item.fileName,
           jobData: job
         });
 
-        // 3. Save analysis output & update status
         await saveCandidateAnalysis({
           candidateResumeId: savedCand.id,
           jobId: job.id,
@@ -263,13 +243,11 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
     await loadJobCandidates();
   };
 
-  // Retry failed resumes
   const handleRetryFailed = () => {
     setUploadQueue(failedCandidates);
     setFailedCandidates([]);
   };
 
-  // Update candidate status (Shortlist / Reject)
   const handleUpdateStatus = async (cand, status) => {
     try {
       await setCandidateStatus(cand.id, job.id, recruiterId, status);
@@ -281,7 +259,6 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
     }
   };
 
-  // Filter and Sort Candidates
   const filteredCandidates = candidates.filter((cand) => {
     const name = cand.analysis?.candidate?.name || cand.file_name || '';
     const skills = cand.analysis?.matched_skills?.join(' ') || '';
@@ -291,12 +268,10 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
 
     if (!matchesSearch) return false;
 
-    // Match Score filter
     if (scoreFilter === 'STRONG' && (cand.match_score === null || cand.match_score < 80)) return false;
     if (scoreFilter === 'GOOD' && (cand.match_score === null || cand.match_score < 65 || cand.match_score >= 80)) return false;
     if (scoreFilter === 'LOW' && (cand.match_score === null || cand.match_score >= 65)) return false;
 
-    // Status filter
     if (statusFilter !== 'ALL' && cand.status !== statusFilter) return false;
 
     return true;
@@ -320,44 +295,44 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
   const getRecommendationBadge = (rec) => {
     switch (rec) {
       case 'STRONGLY RECOMMEND':
-        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
+        return 'bg-[#7DD3FC] text-black border-2 border-black';
       case 'RECOMMEND':
-        return 'bg-green-50 text-green-700 border-green-200';
+        return 'bg-[#BAE6FD] text-black border-2 border-black';
       case 'CONSIDER':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-[#E0F2FE] text-black border-2 border-black';
       case 'LOW MATCH':
-        return 'bg-orange-50 text-orange-700 border-orange-200';
+        return 'bg-[#F0F9FF] text-black border-2 border-black';
       case 'NOT RECOMMENDED':
-        return 'bg-rose-50 text-rose-700 border-rose-200';
+        return 'bg-[#E2E8F0] text-black border-2 border-black';
       default:
-        return 'bg-gray-50 text-gray-700 border-gray-200';
+        return 'bg-white text-black border-2 border-black';
     }
   };
 
   return (
-    <div className="max-w-6xl mx-auto space-y-8 animate-fadeIn">
+    <div className="max-w-6xl mx-auto space-y-8 font-serif text-black">
       {/* Top Banner & Job Context */}
-      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-3xl p-8 text-white shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="bg-[#BAE6FD] border-4 border-black p-8 text-black shadow-[8px_8px_0px_0px_#000] flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <button
             onClick={onBack}
-            className="text-xs text-indigo-300 hover:text-white mb-3 inline-flex items-center gap-1 transition-colors cursor-pointer"
+            className="text-xs font-black uppercase text-black hover:underline mb-3 inline-flex items-center gap-1 transition-colors cursor-pointer"
           >
             ← Back to Jobs List
           </button>
           <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-extrabold tracking-tight text-white">{job?.title}</h1>
-            <span className="px-3 py-1 bg-white/10 text-indigo-200 text-xs font-semibold rounded-full border border-white/15">
+            <h1 className="text-3xl font-black uppercase tracking-tight text-black">{job?.title}</h1>
+            <span className="px-3 py-1 bg-white text-black text-xs font-black uppercase border-2 border-black shadow-[2px_2px_0px_0px_#000]">
               {job?.company}
             </span>
           </div>
-          <p className="text-xs text-indigo-200/80 mt-2 max-w-2xl leading-relaxed">
-            {job?.description || 'Compare uploaded candidate resumes against requirements using transparent weighted AI evaluation.'}
+          <p className="text-xs font-bold text-black/80 mt-2 max-w-2xl leading-relaxed">
+            {job?.description || 'Compare candidate resumes against requirements using transparent weighted AI evaluation.'}
           </p>
 
           <div className="flex flex-wrap gap-2 mt-4">
             {(Array.isArray(job?.required_skills) ? job.required_skills : (job?.required_skills || '').split(',')).map((sk, i) => (
-              <span key={i} className="px-2.5 py-1 bg-indigo-500/20 border border-indigo-400/30 text-indigo-200 text-xs font-medium rounded-lg">
+              <span key={i} className="px-2.5 py-1 bg-white text-black border-2 border-black text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
                 {typeof sk === 'string' ? sk.trim() : sk}
               </span>
             ))}
@@ -366,14 +341,14 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
 
         <div className="flex flex-col items-end shrink-0 gap-3">
           <div className="text-right">
-            <span className="text-xs text-indigo-300 font-semibold block uppercase tracking-wider">Candidates Analyzed</span>
-            <span className="text-4xl font-black text-white">
+            <span className="text-[10px] text-black font-black block uppercase tracking-wider">Candidates Analyzed</span>
+            <span className="text-4xl font-black text-black">
               {candidates.filter((c) => c.match_score !== null).length}
             </span>
           </div>
           <button
             onClick={loadJobCandidates}
-            className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer border border-white/15"
+            className="px-4 py-2 bg-white hover:bg-black hover:text-[#7DD3FC] text-black border-2 border-black text-xs font-black uppercase shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors cursor-pointer flex items-center gap-1.5"
           >
             <RefreshCw className="w-3.5 h-3.5" /> Refresh Data
           </button>
@@ -381,14 +356,14 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
       </div>
 
       {/* Multi-Resume Upload Section */}
-      <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="bg-white border-4 border-black p-8 shadow-[8px_8px_0px_0px_#000] space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b-2 border-black pb-4">
           <div>
-            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <Upload className="w-5 h-5 text-indigo-600" />
+            <h2 className="text-lg font-black uppercase tracking-wider text-black flex items-center gap-2">
+              <Upload className="w-5 h-5 stroke-[2.5]" />
               Candidate Resumes Upload
             </h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <p className="text-xs font-bold text-black/60 mt-0.5">
               Upload multiple resumes simultaneously (PDF, DOCX, TXT) to run transparent AI matching.
             </p>
           </div>
@@ -397,17 +372,17 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
             <button
               onClick={handleLoadTestCandidates}
               disabled={isProcessing}
-              className="px-4 py-2 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="px-4 py-2 bg-[#BAE6FD] hover:bg-[#7DD3FC] text-black border-2 border-black text-xs font-black uppercase shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
-              <Sparkles className="w-4 h-4 text-purple-600" /> Load 5 Sample Resumes
+              <Sparkles className="w-4 h-4 stroke-[2.5]" /> Load Sample Batch
             </button>
 
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={isProcessing}
-              className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-100 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="px-5 py-2 bg-black text-[#7DD3FC] hover:bg-[#7DD3FC] hover:text-black border-2 border-black text-xs font-black uppercase shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
             >
-              <Upload className="w-4 h-4" /> Upload Multiple Resumes
+              <Upload className="w-4 h-4 stroke-[2.5]" /> Upload Files
             </button>
             <input
               ref={fileInputRef}
@@ -427,71 +402,54 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
             e.preventDefault();
             handleFilesSelected(e.dataTransfer.files);
           }}
-          className="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center bg-slate-50/60 hover:bg-indigo-50/20 hover:border-indigo-300 transition-all cursor-pointer"
+          className="border-3 border-dashed border-black p-8 text-center bg-[#F0F9FF] hover:bg-[#E0F2FE] transition-all cursor-pointer shadow-[4px_4px_0px_0px_#000]"
           onClick={() => fileInputRef.current?.click()}
         >
           <div className="max-w-md mx-auto space-y-2">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-indigo-600">
-              <Upload className="w-6 h-6" />
+            <div className="w-12 h-12 bg-white border-2 border-black flex items-center justify-center mx-auto text-black shadow-[3px_3px_0px_0px_#000]">
+              <Upload className="w-6 h-6 stroke-[2.5]" />
             </div>
-            <p className="text-sm font-bold text-gray-800">
-              Drag & Drop multiple candidate resumes here
+            <p className="text-sm font-black uppercase tracking-wider text-black">
+              Drag & Drop Candidate Resumes Here
             </p>
-            <p className="text-xs text-gray-500">
-              Supported file formats: <strong className="text-gray-700">PDF, DOCX, TXT</strong>
+            <p className="text-xs font-bold text-black/60">
+              Supported file formats: PDF, DOCX, TXT
             </p>
           </div>
         </div>
 
         {/* Upload Queue & Processing Bar */}
         {uploadQueue.length > 0 && (
-          <div className="bg-indigo-50/50 border border-indigo-100 rounded-2xl p-6 space-y-4">
+          <div className="bg-[#BAE6FD] border-3 border-black p-6 shadow-[5px_5px_0px_0px_#000] space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-bold text-indigo-950">
+                <h3 className="text-sm font-black uppercase tracking-wider text-black">
                   Resumes Ready for Analysis ({uploadQueue.length})
                 </h3>
-                <p className="text-xs text-indigo-700/80">
-                  Ready to run 40/25/15/10/10 scoring model via Groq AI.
+                <p className="text-xs font-bold text-black/80">
+                  Ready to run 40/25/15/10/10 weighted multi-factor scoring model.
                 </p>
               </div>
 
               <button
                 onClick={handleAnalyzeQueue}
                 disabled={isProcessing}
-                className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-200 flex items-center gap-2 cursor-pointer disabled:opacity-60"
+                className="px-6 py-2.5 bg-black text-[#7DD3FC] hover:bg-[#7DD3FC] hover:text-black border-2 border-black text-xs font-black uppercase tracking-wider shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-60"
               >
-                {isProcessing ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Analyzing Candidates...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4 text-indigo-200" />
-                    Analyze All Candidates ({uploadQueue.length})
-                  </>
-                )}
+                {isProcessing ? 'Analyzing Candidates...' : `Analyze All (${uploadQueue.length})`}
               </button>
             </div>
 
             {/* Live Progress Bar */}
             {isProcessing && (
               <div className="space-y-1.5 pt-2">
-                <div className="flex justify-between text-xs font-semibold text-indigo-900">
-                  <span>
-                    Processing: {processingStats.completed} / {processingStats.total} analyzed
-                  </span>
-                  <span>
-                    {Math.round((processingStats.completed / processingStats.total) * 100)}%
-                  </span>
+                <div className="flex justify-between text-xs font-black uppercase text-black">
+                  <span>Processing: {processingStats.completed} / {processingStats.total}</span>
+                  <span>{Math.round((processingStats.completed / processingStats.total) * 100)}%</span>
                 </div>
-                <div className="w-full bg-indigo-200/50 rounded-full h-2.5 overflow-hidden">
+                <div className="w-full bg-white border-2 border-black h-4 overflow-hidden p-0.5">
                   <div
-                    className="bg-indigo-600 h-2.5 rounded-full transition-all duration-300"
+                    className="bg-black h-full transition-all duration-300"
                     style={{
                       width: `${Math.round((processingStats.completed / processingStats.total) * 100)}%`
                     }}
@@ -505,13 +463,13 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
               {uploadQueue.map((item, idx) => (
                 <div
                   key={idx}
-                  className="flex items-center justify-between px-3 py-2 bg-white rounded-xl border border-indigo-100 text-xs shadow-2xs"
+                  className="flex items-center justify-between px-3 py-2 bg-white border-2 border-black text-xs shadow-[2px_2px_0px_0px_#000]"
                 >
-                  <span className="font-medium text-gray-800 truncate max-w-[180px] flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-indigo-500" />
+                  <span className="font-bold text-black truncate max-w-[180px] flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5" />
                     {item.fileName}
                   </span>
-                  <span className="text-[10px] font-semibold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-black uppercase bg-[#BAE6FD] text-black px-1.5 py-0.5 border border-black">
                     Queued
                   </span>
                 </div>
@@ -522,16 +480,16 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
 
         {/* Failed resumes banner */}
         {failedCandidates.length > 0 && (
-          <div className="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 flex items-center justify-between">
+          <div className="p-4 bg-[#E0F2FE] border-3 border-black text-black shadow-[4px_4px_0px_0px_#000] flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-rose-600" />
-              <span className="text-xs font-medium">
+              <AlertCircle className="w-5 h-5 stroke-[2.5]" />
+              <span className="text-xs font-black">
                 {failedCandidates.length} resume(s) encountered an analysis error.
               </span>
             </div>
             <button
               onClick={handleRetryFailed}
-              className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer"
+              className="px-3 py-1.5 bg-black text-white hover:bg-white hover:text-black border-2 border-black text-xs font-black uppercase tracking-wider cursor-pointer"
             >
               Retry Failed
             </button>
@@ -540,51 +498,50 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
       </div>
 
       {/* Filter and Search Bar */}
-      <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-white border-3 border-black p-4 shadow-[5px_5px_0px_0px_#000] flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Search */}
         <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+          <Search className="w-4 h-4 text-black absolute left-3.5 top-1/2 -translate-y-1/2 stroke-[2.5]" />
           <input
             type="text"
             placeholder="Search candidate or skill..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-800"
+            className="w-full pl-9 pr-4 py-2 bg-[#F0F9FF] border-2 border-black text-xs font-bold focus:outline-none focus:shadow-[3px_3px_0px_0px_#000] text-black uppercase"
           />
         </div>
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-end">
-          {/* Match Score Filter */}
-          <div className="flex items-center bg-gray-100 p-1 rounded-xl text-xs font-medium">
+          <div className="flex items-center gap-1 text-xs font-black">
             <button
               onClick={() => setScoreFilter('ALL')}
-              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                scoreFilter === 'ALL' ? 'bg-white text-gray-900 shadow-xs font-bold' : 'text-gray-500'
+              className={`px-3 py-1.5 border-2 border-black uppercase cursor-pointer ${
+                scoreFilter === 'ALL' ? 'bg-[#7DD3FC] text-black shadow-[2px_2px_0px_0px_#000]' : 'bg-white text-black'
               }`}
             >
               All Matches
             </button>
             <button
               onClick={() => setScoreFilter('STRONG')}
-              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                scoreFilter === 'STRONG' ? 'bg-white text-emerald-700 shadow-xs font-bold' : 'text-gray-500'
+              className={`px-3 py-1.5 border-2 border-black uppercase cursor-pointer ${
+                scoreFilter === 'STRONG' ? 'bg-[#38BDF8] text-black shadow-[2px_2px_0px_0px_#000]' : 'bg-white text-black'
               }`}
             >
               Strong (80%+)
             </button>
             <button
               onClick={() => setScoreFilter('GOOD')}
-              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                scoreFilter === 'GOOD' ? 'bg-white text-indigo-700 shadow-xs font-bold' : 'text-gray-500'
+              className={`px-3 py-1.5 border-2 border-black uppercase cursor-pointer ${
+                scoreFilter === 'GOOD' ? 'bg-[#BAE6FD] text-black shadow-[2px_2px_0px_0px_#000]' : 'bg-white text-black'
               }`}
             >
               Good (65-79%)
             </button>
             <button
               onClick={() => setScoreFilter('LOW')}
-              className={`px-3 py-1 rounded-lg transition-all cursor-pointer ${
-                scoreFilter === 'LOW' ? 'bg-white text-rose-700 shadow-xs font-bold' : 'text-gray-500'
+              className={`px-3 py-1.5 border-2 border-black uppercase cursor-pointer ${
+                scoreFilter === 'LOW' ? 'bg-[#E0F2FE] text-black shadow-[2px_2px_0px_0px_#000]' : 'bg-white text-black'
               }`}
             >
               Low (&lt;65%)
@@ -595,7 +552,7 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none cursor-pointer"
+            className="px-3 py-1.5 bg-white border-2 border-black text-xs font-black uppercase text-black cursor-pointer shadow-[2px_2px_0px_0px_#000]"
           >
             <option value="ALL">All Statuses</option>
             <option value="SHORTLISTED">Shortlisted</option>
@@ -608,11 +565,11 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-medium text-gray-700 focus:outline-none cursor-pointer"
+            className="px-3 py-1.5 bg-white border-2 border-black text-xs font-black uppercase text-black cursor-pointer shadow-[2px_2px_0px_0px_#000]"
           >
-            <option value="MATCH_DESC">Match Score (High to Low)</option>
-            <option value="MATCH_ASC">Match Score (Low to High)</option>
-            <option value="NAME">Candidate Name</option>
+            <option value="MATCH_DESC">Score (High to Low)</option>
+            <option value="MATCH_ASC">Score (Low to High)</option>
+            <option value="NAME">Name</option>
           </select>
         </div>
       </div>
@@ -620,21 +577,18 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
       {/* Ranked Candidate List */}
       <div className="space-y-4">
         {loading ? (
-          <div className="bg-white p-12 rounded-3xl border border-gray-200 text-center text-gray-400">
-            <div className="animate-pulse space-y-3 max-w-sm mx-auto">
-              <div className="h-6 bg-gray-200 rounded-xl w-3/4 mx-auto" />
-              <div className="h-4 bg-gray-100 rounded-xl w-1/2 mx-auto" />
-            </div>
+          <div className="bg-white p-12 border-3 border-black shadow-[6px_6px_0px_0px_#000] text-center text-black font-black uppercase">
+            Loading candidates...
           </div>
         ) : filteredCandidates.length === 0 ? (
-          <div className="bg-white p-12 rounded-3xl border border-gray-200 text-center text-gray-500 space-y-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center mx-auto text-indigo-600">
-              <Award className="w-6 h-6" />
+          <div className="bg-white p-12 border-3 border-black shadow-[6px_6px_0px_0px_#000] text-center text-black space-y-3">
+            <div className="w-12 h-12 bg-[#BAE6FD] border-2 border-black flex items-center justify-center mx-auto text-black shadow-[3px_3px_0px_0px_#000]">
+              <Award className="w-6 h-6 stroke-[2.5]" />
             </div>
-            <h3 className="text-base font-bold text-gray-900">No Candidates Found</h3>
-            <p className="text-xs text-gray-400 max-w-md mx-auto">
+            <h3 className="text-lg font-black uppercase">No Candidates Found</h3>
+            <p className="text-xs font-bold text-black/60 max-w-md mx-auto">
               {candidates.length === 0
-                ? 'Upload multiple candidate resumes or click "Load 5 Sample Resumes" to start ranking candidates.'
+                ? 'Upload multiple candidate resumes or click "Load Sample Batch" to start ranking candidates.'
                 : 'No candidates match your current filter or search criteria.'}
             </p>
           </div>
@@ -653,78 +607,78 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
             return (
               <div
                 key={cand.id}
-                className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm hover:shadow-md transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
+                className="bg-white border-3 border-black p-6 shadow-[5px_5px_0px_0px_#000] hover:shadow-[7px_7px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5 transition-all flex flex-col md:flex-row items-start md:items-center justify-between gap-6"
               >
                 {/* Left: Rank, Name, Badges, Metrics */}
                 <div className="flex items-start gap-4 flex-1">
                   {/* Rank Badge */}
-                  <div className={`w-12 h-12 rounded-2xl flex flex-col items-center justify-center shrink-0 font-extrabold text-sm border shadow-xs ${
+                  <div className={`w-12 h-12 border-2 border-black flex flex-col items-center justify-center shrink-0 font-black text-sm shadow-[2px_2px_0px_0px_#000] ${
                     index === 0
-                      ? 'bg-amber-400/15 border-amber-400/40 text-amber-900'
+                      ? 'bg-[#7DD3FC] text-black'
                       : index === 1
-                      ? 'bg-slate-200 border-slate-300 text-slate-800'
+                      ? 'bg-[#BAE6FD] text-black'
                       : index === 2
-                      ? 'bg-amber-700/10 border-amber-700/20 text-amber-900'
-                      : 'bg-gray-50 border-gray-200 text-gray-500'
+                      ? 'bg-[#E0F2FE] text-black'
+                      : 'bg-[#F0F9FF] text-black'
                   }`}>
-                    <span className="text-[10px] uppercase font-bold text-gray-400 leading-none">Rank</span>
+                    <span className="text-[9px] uppercase font-black text-black/60 leading-none">Rank</span>
                     <span>#{cand.rank ?? index + 1}</span>
                   </div>
 
                   {/* Candidate Details */}
                   <div className="space-y-2 flex-1">
                     <div className="flex flex-wrap items-center gap-3">
-                      <h3 className="text-lg font-bold text-gray-900">
+                      <h3 className="text-lg font-black uppercase text-black">
                         {profile.name || cand.file_name?.replace(/\.[^/.]+$/, '')}
                       </h3>
                       
                       {cand.status && (
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide uppercase border ${
+                        <span className={`px-2.5 py-0.5 text-[10px] font-black uppercase border-2 border-black shadow-[1px_1px_0px_0px_#000] ${
                           cand.status === 'SHORTLISTED'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            ? 'bg-[#7DD3FC] text-black'
                             : cand.status === 'REJECTED'
-                            ? 'bg-rose-50 text-rose-700 border-rose-200'
-                            : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                            ? 'bg-[#E0F2FE] text-black'
+                            : 'bg-[#BAE6FD] text-black'
                         }`}>
                           {cand.status}
                         </span>
                       )}
 
-                      <span className={`px-3 py-1 rounded-xl text-xs font-bold border ${getRecommendationBadge(rec)}`}>
+                      <span className={`px-3 py-0.5 text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000] ${getRecommendationBadge(rec)}`}>
                         {rec}
                       </span>
                     </div>
 
                     {/* Metrics Row */}
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-gray-600 pt-1">
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-bold text-black/70 pt-1">
                       <div className="flex items-center gap-1.5">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <CheckCircle2 className="w-4 h-4 text-black stroke-[2.5]" />
                         <span>
-                          Skills: <strong className="text-gray-900">{matchedSkills.length}</strong>
+                          Skills: <strong className="text-black font-black">{matchedSkills.length}</strong>
                           {totalJobSkills > 0 ? `/${totalJobSkills}` : ''} matched
                         </span>
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-indigo-600" />
-                        <span>Experience: <strong className="text-gray-900">{expMatch}</strong></span>
+                        <span className="w-2 h-2 bg-black" />
+                        <span>Exp: <strong className="text-black font-black">{expMatch}</strong></span>
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full bg-purple-600" />
-                        <span>Education: <strong className="text-gray-900">{eduMatch}</strong></span>
+                        <span className="w-2 h-2 bg-black" />
+                        <span>Edu: <strong className="text-black font-black">{eduMatch}</strong></span>
                       </div>
                     </div>
 
                     {/* Matched Skills Chips Preview */}
                     <div className="flex flex-wrap gap-1.5 pt-1">
                       {matchedSkills.slice(0, 5).map((sk, i) => (
-                        <span key={i} className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded text-[11px] font-medium">
+                        <span key={i} className="px-2 py-0.5 bg-[#BAE6FD] text-black border border-black text-[10px] font-black uppercase shadow-[1px_1px_0px_0px_#000]">
                           {sk}
                         </span>
                       ))}
                       {matchedSkills.length > 5 && (
-                        <span className="text-[11px] text-gray-400 self-center">
+                        <span className="text-[10px] font-black text-black/60 self-center">
                           +{matchedSkills.length - 5} more
                         </span>
                       )}
@@ -733,21 +687,13 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
                 </div>
 
                 {/* Right: Match Score & Action Buttons */}
-                <div className="flex items-center gap-6 shrink-0 w-full md:w-auto justify-between md:justify-end border-t md:border-t-0 pt-4 md:pt-0 border-gray-100">
+                <div className="flex items-center gap-6 shrink-0 w-full md:w-auto justify-between md:justify-end border-t-2 md:border-t-0 pt-4 md:pt-0 border-black">
                   {/* Match Score Display */}
                   <div className="text-center md:text-right">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-black/60 block">
                       Match Score
                     </span>
-                    <span className={`text-3xl font-extrabold ${
-                      matchScore >= 85
-                        ? 'text-emerald-600'
-                        : matchScore >= 70
-                        ? 'text-indigo-600'
-                        : matchScore >= 55
-                        ? 'text-amber-600'
-                        : 'text-rose-600'
-                    }`}>
+                    <span className="text-3xl font-black text-black">
                       {matchScore !== null ? `${matchScore}%` : 'Pending'}
                     </span>
                   </div>
@@ -756,28 +702,28 @@ export default function CandidateRanker({ job, recruiterId, onBack }) {
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => setSelectedCandidate(cand)}
-                      className="px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer border border-indigo-200"
+                      className="px-4 py-2.5 bg-[#7DD3FC] hover:bg-black hover:text-[#7DD3FC] text-black text-xs font-black uppercase tracking-wider border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors flex items-center gap-1.5 cursor-pointer"
                     >
-                      <Eye className="w-4 h-4 text-indigo-600" /> View Analysis
+                      <Eye className="w-4 h-4 stroke-[2.5]" /> View
                     </button>
 
                     {cand.status !== 'SHORTLISTED' && (
                       <button
                         onClick={() => handleUpdateStatus(cand, 'SHORTLISTED')}
-                        className="p-2.5 rounded-xl border border-emerald-200 text-emerald-700 hover:bg-emerald-50 transition-colors cursor-pointer"
+                        className="p-2.5 bg-[#7DD3FC] hover:bg-[#38BDF8] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors cursor-pointer"
                         title="Shortlist Candidate"
                       >
-                        <UserCheck className="w-4 h-4" />
+                        <UserCheck className="w-4 h-4 stroke-[2.5]" />
                       </button>
                     )}
 
                     {cand.status !== 'REJECTED' && (
                       <button
                         onClick={() => handleUpdateStatus(cand, 'REJECTED')}
-                        className="p-2.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                        className="p-2.5 bg-[#E0F2FE] hover:bg-[#BAE6FD] text-black border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors cursor-pointer"
                         title="Reject Candidate"
                       >
-                        <UserX className="w-4 h-4" />
+                        <UserX className="w-4 h-4 stroke-[2.5]" />
                       </button>
                     )}
                   </div>

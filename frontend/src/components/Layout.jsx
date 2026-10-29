@@ -1,9 +1,10 @@
 import React from 'react';
 import { 
-  Home, TrendingUp, Bot, Settings, LogOut, Briefcase, Target, 
-  Users, Plus, BarChart3, Sparkles, Building2, User 
+  Home, TrendingUp, Bot, LogOut, Briefcase, Target, 
+  Users, Plus, BarChart3, User, CheckSquare 
 } from 'lucide-react';
 import { signOut } from '../lib/auth';
+import { WaveGridBackground } from './ui/wave-grid-background';
 
 export default function Layout({ 
   children, 
@@ -26,9 +27,8 @@ export default function Layout({
     switch (currentView) {
       case 'dashboard': return 'OPPORTUNITY FEED';
       case 'jobmatcher': return 'AI JOB MATCHER';
-      case 'myladder': return 'MY LADDER (APPLICATIONS)';
+      case 'myladder': return 'MY LADDER (KANBAN)';
       case 'aicoach': return 'AI CAREER COACH';
-      case 'careerprogression': return 'CAREER PROGRESSION TASKS';
       case 'recruiter_dashboard': return 'RECRUITER DASHBOARD';
       case 'recruiter_jobs': return 'JOB POSTINGS & REQUISITIONS';
       case 'recruiter_ranker': return 'AI MULTI-CANDIDATE RANKER';
@@ -39,31 +39,44 @@ export default function Layout({
   };
 
   return (
-    <div className="flex h-screen bg-white overflow-hidden font-sans">
+    <div className="flex h-screen bg-[#F0F9FF] text-black overflow-hidden font-serif selection:bg-[#7DD3FC] selection:text-black relative">
       
+      {/* 3D Wave Grid Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none opacity-85">
+        <WaveGridBackground 
+          colorBase="#E0F2FE"
+          colorHigh="#38BDF8"
+          gridSize={40}
+          waveAmplitude={0.4}
+          waveSpeed={5.5}
+        />
+      </div>
+
       {/* Sidebar (Fixed Left) */}
-      <aside className="w-64 bg-slate-50 border-r border-gray-200 flex flex-col justify-between shrink-0 h-full">
+      <aside className="w-68 bg-[#F0F9FF]/95 backdrop-blur-md border-r-4 border-black flex flex-col justify-between shrink-0 h-full shadow-[4px_0px_0px_0px_#000] z-20">
         <div>
           {/* Logo Area */}
-          <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
-            <div className="flex items-center">
-              <Briefcase className="w-6 h-6 text-indigo-600 mr-2" />
-              <span className="text-xl font-bold text-gray-900 tracking-tight">Career Ladder</span>
+          <div className="h-16 flex items-center justify-between px-6 border-b-4 border-black bg-[#BAE6FD]">
+            <div className="flex items-center gap-2">
+              <div className="w-9 h-9 bg-black flex items-center justify-center border-2 border-black shadow-[2px_2px_0px_0px_#7DD3FC]">
+                <Briefcase className="w-5 h-5 text-[#7DD3FC]" />
+              </div>
+              <span className="text-xl font-black text-black tracking-tight uppercase">Career Ladder</span>
             </div>
           </div>
 
           {/* Role Status Pill */}
-          <div className="px-6 pt-4 pb-2">
-            <div className={`p-2.5 rounded-xl border flex items-center justify-between ${
+          <div className="px-5 pt-4 pb-2">
+            <div className={`p-3 border-2 border-black shadow-[3px_3px_0px_0px_#000] flex items-center justify-between ${
               isRecruiter 
-                ? 'bg-purple-50/70 border-purple-200 text-purple-900' 
-                : 'bg-indigo-50/70 border-indigo-200 text-indigo-900'
+                ? 'bg-[#C7D2FE] text-black' 
+                : 'bg-[#BAE6FD] text-black'
             }`}>
-              <div className="flex items-center gap-2">
-                <span className="text-base">{isRecruiter ? '🏢' : '🎯'}</span>
+              <div className="flex items-center gap-2.5">
+                <span className="text-xl">{isRecruiter ? '🏢' : '🎯'}</span>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-gray-400 block leading-none">Role</span>
-                  <span className="text-xs font-bold leading-tight">
+                  <span className="text-[10px] uppercase font-black tracking-widest text-black/70 block leading-none">Role</span>
+                  <span className="text-xs font-black uppercase tracking-wide leading-tight">
                     {isRecruiter ? 'Recruiter' : 'Job Seeker'}
                   </span>
                 </div>
@@ -73,7 +86,7 @@ export default function Layout({
                 <button
                   onClick={onSwitchRole}
                   title="Switch test role"
-                  className="text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                  className="text-xs font-black uppercase px-2.5 py-0.5 bg-black text-[#7DD3FC] border-2 border-black hover:bg-[#7DD3FC] hover:text-black transition-colors cursor-pointer shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5"
                 >
                   Switch
                 </button>
@@ -83,135 +96,123 @@ export default function Layout({
 
           {/* Navigation Section */}
           <div className="px-4 py-4">
-            <h3 className="text-xs font-semibold text-gray-400 tracking-wider uppercase mb-3 px-2">
-              {isRecruiter ? 'Recruiter Portal' : 'Job Seeker'}
+            <h3 className="text-xs font-black text-black/60 tracking-widest uppercase mb-3 px-2">
+              {isRecruiter ? '⚡ Recruiter Portal' : '⚡ Job Seeker Menu'}
             </h3>
             
-            <nav className="space-y-1">
+            <nav className="space-y-2">
               {isRecruiter ? (
                 /* Recruiter Navigation */
                 <>
                   <button 
                     onClick={() => onNavigate('recruiter_dashboard')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'recruiter_dashboard' 
-                        ? 'bg-purple-100 text-purple-900 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#93C5FD] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <Home className={`w-5 h-5 mr-3 ${currentView === 'recruiter_dashboard' ? 'text-purple-600' : 'text-gray-400'}`} />
+                    <Home className="w-5 h-5 mr-3 shrink-0" />
                     Dashboard
                   </button>
 
                   <button 
                     onClick={() => onNavigate('recruiter_jobs')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'recruiter_jobs' 
-                        ? 'bg-purple-100 text-purple-900 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#93C5FD] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <Briefcase className={`w-5 h-5 mr-3 ${currentView === 'recruiter_jobs' ? 'text-purple-600' : 'text-gray-400'}`} />
+                    <Briefcase className="w-5 h-5 mr-3 shrink-0" />
                     Jobs
                   </button>
 
                   <button 
                     onClick={() => onNavigate('recruiter_ranker')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'recruiter_ranker' 
-                        ? 'bg-purple-100 text-purple-900 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#93C5FD] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <Users className={`w-5 h-5 mr-3 ${currentView === 'recruiter_ranker' ? 'text-purple-600' : 'text-gray-400'}`} />
+                    <Users className="w-5 h-5 mr-3 shrink-0" />
                     Candidate Ranker
                   </button>
 
                   <button 
                     onClick={() => onNavigate('recruiter_create_job')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'recruiter_create_job' 
-                        ? 'bg-purple-100 text-purple-900 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#93C5FD] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <Plus className={`w-5 h-5 mr-3 ${currentView === 'recruiter_create_job' ? 'text-purple-600' : 'text-gray-400'}`} />
+                    <Plus className="w-5 h-5 mr-3 shrink-0" />
                     Create Job
                   </button>
 
                   <button 
                     onClick={() => onNavigate('recruiter_analytics')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'recruiter_analytics' 
-                        ? 'bg-purple-100 text-purple-900 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#93C5FD] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <BarChart3 className={`w-5 h-5 mr-3 ${currentView === 'recruiter_analytics' ? 'text-purple-600' : 'text-gray-400'}`} />
+                    <BarChart3 className="w-5 h-5 mr-3 shrink-0" />
                     Analytics
                   </button>
                 </>
               ) : (
-                /* Job Seeker Navigation (Original Preserved) */
+                /* Job Seeker Navigation */
                 <>
                   <button 
                     onClick={() => onNavigate('dashboard')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'dashboard' 
-                        ? 'bg-indigo-50 text-indigo-700 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#7DD3FC] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <Home className={`w-5 h-5 mr-3 ${currentView === 'dashboard' ? 'text-indigo-600' : 'text-gray-400'}`} />
-                    Home (Jobs)
+                    <Home className="w-5 h-5 mr-3 shrink-0" />
+                    Home (Feed)
                   </button>
 
                   <button 
                     onClick={() => onNavigate('jobmatcher')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'jobmatcher' 
-                        ? 'bg-indigo-50 text-indigo-700 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#7DD3FC] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <Target className={`w-5 h-5 mr-3 ${currentView === 'jobmatcher' ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    <Target className="w-5 h-5 mr-3 shrink-0" />
                     AI Job Matcher
                   </button>
 
                   <button 
                     onClick={() => onNavigate('myladder')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'myladder' 
-                        ? 'bg-indigo-50 text-indigo-700 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#7DD3FC] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <TrendingUp className={`w-5 h-5 mr-3 ${currentView === 'myladder' ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    <TrendingUp className="w-5 h-5 mr-3 shrink-0" />
                     My Ladder
                   </button>
 
                   <button 
                     onClick={() => onNavigate('aicoach')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
+                    className={`flex items-center w-full px-3 py-2.5 text-sm font-bold border-2 transition-all cursor-pointer ${
                       currentView === 'aicoach' 
-                        ? 'bg-indigo-50 text-indigo-700 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                        ? 'bg-[#7DD3FC] text-black border-black shadow-[3px_3px_0px_0px_#000] translate-x-1 font-black' 
+                        : 'border-transparent text-black hover:border-black hover:bg-white hover:shadow-[3px_3px_0px_0px_#000]'
                     }`}
                   >
-                    <Bot className={`w-5 h-5 mr-3 ${currentView === 'aicoach' ? 'text-indigo-600' : 'text-gray-400'}`} />
+                    <Bot className="w-5 h-5 mr-3 shrink-0" />
                     AI Coach
-                  </button>
-
-                  <button 
-                    onClick={() => onNavigate('careerprogression')}
-                    className={`flex items-center w-full px-2 py-2.5 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                      currentView === 'careerprogression' 
-                        ? 'bg-indigo-50 text-indigo-700 font-bold' 
-                        : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-                    }`}
-                  >
-                    <TrendingUp className={`w-5 h-5 mr-3 ${currentView === 'careerprogression' ? 'text-indigo-600' : 'text-gray-400'}`} />
-                    Career Tasks
                   </button>
                 </>
               )}
@@ -220,51 +221,49 @@ export default function Layout({
         </div>
 
         {/* User Info & Log Out Button */}
-        <div className="p-4 border-t border-gray-200 space-y-2">
-          <div className="px-2 py-1.5 flex items-center gap-2 text-xs text-gray-600 truncate">
-            <User className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-            <span className="truncate font-medium">{userName}</span>
+        <div className="p-4 border-t-4 border-black bg-white/95 space-y-2">
+          <div className="px-2 py-1.5 flex items-center gap-2 text-xs text-black font-bold truncate border-2 border-black bg-[#F0F9FF] shadow-[2px_2px_0px_0px_#000]">
+            <User className="w-3.5 h-3.5 text-black shrink-0" />
+            <span className="truncate font-black">{userName}</span>
           </div>
           <button
             onClick={handleSignOut}
-            className="flex items-center w-full px-2 py-2 text-sm font-medium rounded-lg text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+            className="flex items-center justify-center w-full px-3 py-2 text-xs font-black uppercase tracking-wider rounded-none bg-[#BAE6FD] hover:bg-[#38BDF8] text-black border-2 border-black shadow-[3px_3px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 active:shadow-[1px_1px_0px_0px_#000] transition-all cursor-pointer"
           >
-            <LogOut className="w-4 h-4 mr-2.5 text-red-500" />
+            <LogOut className="w-4 h-4 mr-2" />
             Log Out
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex flex-col h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden relative z-10">
         
         {/* Top Header */}
-        <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-8 shrink-0">
-          <h2 className="text-base font-bold text-gray-900 tracking-wide uppercase">
+        <header className="h-16 bg-[#F0F9FF]/95 backdrop-blur-md border-b-4 border-black flex items-center justify-between px-8 shrink-0 z-10 shadow-[0_4px_0px_0px_#000]">
+          <h2 className="text-xl font-black text-black tracking-wider uppercase">
             {getViewTitle()}
           </h2>
           <div className="flex items-center gap-3">
-            <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
+            <span className={`px-3 py-1 text-xs font-black uppercase tracking-wider border-2 border-black shadow-[2px_2px_0px_0px_#000] ${
               isRecruiter
-                ? 'bg-purple-100 text-purple-800'
-                : 'bg-emerald-100 text-emerald-800'
+                ? 'bg-[#C7D2FE] text-black'
+                : 'bg-[#7DD3FC] text-black'
             }`}>
               {isRecruiter ? 'Recruiter Mode' : 'Job Seeker Mode'}
             </span>
 
-            <span className="text-xs text-gray-500 hidden sm:block truncate max-w-[200px]">
+            <span className="text-xs text-black font-bold hidden sm:block truncate max-w-[200px] px-2 py-1 bg-white border-2 border-black shadow-[2px_2px_0px_0px_#000]">
               {userEmail}
             </span>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-xs ${
-              isRecruiter ? 'bg-purple-600' : 'bg-indigo-600'
-            }`}>
+            <div className="w-9 h-9 border-2 border-black shadow-[2px_2px_0px_0px_#000] flex items-center justify-center bg-black text-[#7DD3FC] text-sm font-black uppercase">
               {userEmail?.[0]?.toUpperCase()}
             </div>
           </div>
         </header>
 
         {/* Scrollable Content */}
-        <main className="flex-1 overflow-y-auto bg-slate-50/50 p-8">
+        <main className="flex-1 overflow-y-auto p-8 relative">
           {children}
         </main>
 

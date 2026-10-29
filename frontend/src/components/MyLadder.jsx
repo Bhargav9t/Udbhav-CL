@@ -1,108 +1,58 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/auth';
-import { ExternalLink, Calendar, Building2, Sparkles, GripHorizontal } from 'lucide-react';
+import { 
+  ExternalLink, Calendar, Building2, Sparkles, GripHorizontal, 
+  Trash2, CheckCircle2, ArrowRight, Award, Plus, Check, Zap 
+} from 'lucide-react';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import LadderHeader from './LadderHeader';
 import AIGapAnalysis from './AIGapAnalysis';
-
-const SAMPLE_LADDER = [
-  {
-    id: 'ladder-1',
-    status: 'saved',
-    notes: 'Exciting hackathon to showcase ML and frontend projects',
-    opportunity_id: 'sample-1',
-    opportunities: {
-      id: 'sample-1',
-      title: 'HackMIT 2026',
-      organization: 'MIT',
-      category: 'Hackathon',
-      opportunity_link: 'https://hackmit.org',
-      deadline: 'Oct 15'
-    }
-  },
-  {
-    id: 'ladder-2',
-    status: 'applied',
-    notes: 'Submitted resume and referral link',
-    opportunity_id: 'sample-2',
-    opportunities: {
-      id: 'sample-2',
-      title: 'Software Engineering Intern (Summer 2026)',
-      organization: 'Google',
-      category: 'Internship',
-      opportunity_link: 'https://careers.google.com',
-      deadline: 'Rolling admissions'
-    }
-  },
-  {
-    id: 'ladder-3',
-    status: 'interviewing',
-    notes: 'Technical screen scheduled for next week',
-    opportunity_id: 'sample-4',
-    opportunities: {
-      id: 'sample-4',
-      title: 'Full Stack AI Engineer',
-      organization: 'Frontier AI Labs',
-      category: 'Job',
-      opportunity_link: 'https://careerladder.dev',
-      deadline: 'Immediate'
-    }
-  }
-];
+import { 
+  getLadderItems, 
+  updateLadderItemStatus, 
+  deleteLadderItem,
+  saveOpportunityToLadder
+} from '../lib/ladderService';
 
 const COLUMNS = [
-  { id: 'saved', label: 'Interested', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-300/50' },
-  { id: 'applied', label: 'Applied', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-300/50' },
-  { id: 'interviewing', label: 'In Progress', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-300/50' }
+  { id: 'saved', label: '1. Interested / Saved', tagColor: 'bg-[#BAE6FD]' },
+  { id: 'applied', label: '2. Applied', tagColor: 'bg-[#7DD3FC]' },
+  { id: 'interviewing', label: '3. In Interview', tagColor: 'bg-[#93C5FD]' },
+  { id: 'completed', label: '4. Offers & Wins', tagColor: 'bg-[#86EFAC]' }
 ];
 
-export default function MyLadder({ session }) {
+export default function MyLadder({ session, onNavigate }) {
   const [ladderItems, setLadderItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeOpportunity, setActiveOpportunity] = useState(null);
+  const [celebrationToast, setCelebrationToast] = useState('');
   
-  // Get resume from local storage for AI Analysis
   const resumeText = localStorage.getItem('career_ladder_resume');
+  const userId = session?.user?.id || 'demo-user';
 
-  // Fetch ladder items joined with opportunities
-  const fetchLadder = async () => {
-    if (!isSupabaseConfigured) {
-      setLadderItems(SAMPLE_LADDER);
-      setLoading(false);
-      return;
-    }
+  const loadData = async () => {
     try {
-      const { data, error } = await supabase
-        .from('user_ladder')
-        .select(`
-          id,
-          status,
-          notes,
-          opportunity_id,
-          opportunities (
-            id,
-            title,
-            organization,
-            category,
-            opportunity_link,
-            deadline
-          )
-        `)
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setLadderItems(data || []);
+      const items = await getLadderItems(userId);
+      setLadderItems(items || []);
     } catch (err) {
-      console.error('Error fetching ladder:', err.message);
+      console.warn('Error loading ladder data:', err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (session?.user?.id) fetchLadder();
-  }, [session]);
+    loadData();
+
+    const handleLadderUpdate = (e) => {
+      if (e.detail) setLadderItems(e.detail);
+      else loadData();
+    };
+
+    window.addEventListener('ladder-updated', handleLadderUpdate);
+    return () => {
+      window.removeEventListener('ladder-updated', handleLadderUpdate);
+    };
+  }, [userId]);
 
   const onDragEnd = async (result) => {
     const { destination, source, draggableId } = result;
@@ -113,69 +63,48 @@ export default function MyLadder({ session }) {
     const newStatus = destination.droppableId;
     
     // Optimistic UI update
-    setLadderItems(prev => {
-      const items = Array.from(prev);
-      return items.map(item => 
-        item.id === draggableId ? { ...item, status: newStatus } : item
-      );
-    });
+    setLadderItems(prev => prev.map(item => 
+      item.id === draggableId ? { ...item, status: newStatus } : item
+    ));
 
     try {
-      const { error } = await supabase
-        .from('user_ladder')
-        .update({ status: newStatus, updated_at: new Date().toISOString() })
-        .eq('id', draggableId);
-
-      if (error) throw error;
+      await updateLadderItemStatus(draggableId, newStatus);
+      if (newStatus === 'completed') {
+        setCelebrationToast('🏆 Moved to Offers & Wins! +150 XP earned!');
+        setTimeout(() => setCelebrationToast(''), 4000);
+      }
     } catch (err) {
-      console.error('Error updating status:', err.message);
-      fetchLadder(); // Revert on failure
+      console.error('Error persisting status change:', err);
     }
   };
 
-  const moveToCareerTasks = async (item, outcome) => {
-    const opp = item.opportunities;
-    let status = 'OUTCOME_COMPLETE';
-    if (outcome === 'Lose') status = 'OUTCOME_FAILED';
-    if (outcome === 'Participation') status = 'IN_PROGRESS';
-
-    const prefix = outcome === 'Win' ? 'Won: ' : outcome === 'Lose' ? 'Lost: ' : 'Participated in: ';
-
+  const handleQuickAdvance = async (e, item, targetStatus, xpLabel) => {
+    e.stopPropagation();
     try {
-      // 1. Insert into career_tasks
-      const { error: insertError } = await supabase
-        .from('career_tasks')
-        .insert({
-          user_id: session.user.id,
-          title: `${prefix}${opp.title}`,
-          linked_id: opp.id,
-          status: status,
-          completion_percentage: 100
-        });
-
-      if (insertError) throw insertError;
-
-      // 2. Remove from user_ladder
-      const { error: deleteError } = await supabase
-        .from('user_ladder')
-        .delete()
-        .eq('id', item.id);
-
-      if (deleteError) throw deleteError;
-
-      // 3. Update UI
-      setLadderItems(prev => prev.filter(i => i.id !== item.id));
-
+      await updateLadderItemStatus(item.id, targetStatus);
+      setLadderItems(prev => prev.map(i => i.id === item.id ? { ...i, status: targetStatus } : i));
+      setCelebrationToast(`🎯 ${item.opportunities?.title || 'Role'} advanced to ${targetStatus}! ${xpLabel}`);
+      setTimeout(() => setCelebrationToast(''), 4000);
     } catch (err) {
-      console.error('Error moving to career tasks:', err.message);
-      alert('Failed to move to career tasks. Make sure the Career Tasks schema is set up.');
+      console.error('Error advancing status:', err);
     }
   };
 
-  // Kanban Card Component
+  const handleDeleteItem = async (e, itemId) => {
+    e.stopPropagation();
+    try {
+      await deleteLadderItem(itemId);
+      setLadderItems(prev => prev.filter(i => i.id !== itemId));
+    } catch (err) {
+      console.error('Error deleting item:', err);
+    }
+  };
+
   const LadderCard = ({ item, index }) => {
     const opp = item.opportunities;
     if (!opp) return null;
+
+    const isOffer = item.status === 'completed';
 
     return (
       <Draggable draggableId={item.id} index={index}>
@@ -185,89 +114,123 @@ export default function MyLadder({ session }) {
             {...provided.draggableProps}
             {...provided.dragHandleProps}
             onClick={() => setActiveOpportunity(opp)}
-            className={`bg-white/95 backdrop-blur-sm p-4 rounded-xl transition-all duration-200 group relative flex flex-col gap-3 cursor-grab active:cursor-grabbing border-t-2 border-l border-r border-b border-white border-b-gray-200 ${
+            className={`bg-white border-2 border-black p-4 transition-all duration-150 flex flex-col gap-3 cursor-grab active:cursor-grabbing font-serif ${
               activeOpportunity?.id === opp.id 
-                ? 'border-indigo-500 shadow-md ring-2 ring-indigo-500/20' 
-                : 'hover:border-indigo-200'
+                ? 'bg-[#E0F2FE] shadow-[5px_5px_0px_0px_#000] -translate-x-1' 
+                : 'shadow-[3px_3px_0px_0px_#000] hover:shadow-[5px_5px_0px_0px_#000] hover:-translate-x-0.5 hover:-translate-y-0.5'
             } ${
               snapshot.isDragging 
-                ? 'shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] scale-[1.02] z-50 ring-2 ring-indigo-500/40 rotate-2 bg-white' 
-                : 'shadow-[0_8px_16px_-6px_rgba(0,0,0,0.08),0_0_4px_-2px_rgba(0,0,0,0.04)] hover:shadow-[0_12px_24px_-8px_rgba(0,0,0,0.12)] hover:-translate-y-0.5'
+                ? 'shadow-[8px_8px_0px_0px_#000] z-50 bg-[#BAE6FD] rotate-1' 
+                : ''
+            } ${
+              isOffer ? 'border-emerald-600 bg-emerald-50/50' : ''
             }`}
             style={{
               ...provided.draggableProps.style,
-              // Fix for react-beautiful-dnd in some cases
               top: 'auto',
               left: 'auto'
             }}
           >
-            {/* Grip Icon */}
-            <div className="absolute top-3 right-3 text-gray-300 group-hover:text-gray-500 transition-colors">
-              <GripHorizontal className="w-5 h-5" />
-            </div>
-
-            {/* Content */}
-            <div className="pr-6">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-[10px] font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-md uppercase tracking-wider shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)] border border-purple-100">
-                  {opp.category}
+            {/* Grip Icon & Top Badges */}
+            <div className="flex items-center justify-between border-b-2 border-black pb-2">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className={`text-[10px] font-black text-black px-2 py-0.5 border border-black uppercase tracking-wider shadow-[1px_1px_0px_0px_#000] ${
+                  isOffer ? 'bg-[#86EFAC]' : 'bg-[#BAE6FD]'
+                }`}>
+                  {isOffer ? '🏆 Win / Offer' : opp.category}
                 </span>
                 {resumeText && (
-                  <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-1 rounded-md flex items-center gap-1 group-hover:bg-indigo-100 transition-colors shadow-[inset_0_1px_2px_rgba(255,255,255,0.8)] border border-indigo-100">
-                    <Sparkles className="w-3 h-3" /> AI Gap
+                  <span className="text-[10px] font-black text-black bg-[#93C5FD] px-1.5 py-0.5 border border-black flex items-center gap-1 uppercase tracking-wider shadow-[1px_1px_0px_0px_#000]">
+                    <Sparkles className="w-2.5 h-2.5" /> AI Gap
                   </span>
                 )}
               </div>
-              <h4 className="font-bold text-gray-900 text-sm leading-tight line-clamp-2">
-                {opp.title}
-              </h4>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={(e) => handleDeleteItem(e, item.id)}
+                  title="Remove from Ladder"
+                  className="p-1 hover:bg-[#BAE6FD] border border-transparent hover:border-black transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-black/70 hover:text-black" />
+                </button>
+                <GripHorizontal className="w-4 h-4 text-black cursor-grab" />
+              </div>
             </div>
+
+            {/* Title */}
+            <h4 className="font-black text-black text-sm leading-snug line-clamp-2">
+              {opp.title}
+            </h4>
             
-            <div className="flex flex-col gap-1 mt-auto pt-2">
-              <div className="flex items-center text-xs text-gray-500 font-medium">
-                <Building2 className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+            <div className="flex flex-col gap-1 pt-1 border-t border-black/20 text-black/80 font-bold text-xs">
+              <div className="flex items-center truncate">
+                <Building2 className="w-3.5 h-3.5 mr-1.5 shrink-0 stroke-black" />
                 <span className="truncate">{opp.organization}</span>
               </div>
-              <div className="flex items-center text-xs text-gray-400">
-                <Calendar className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+              <div className="flex items-center text-black/60 truncate">
+                <Calendar className="w-3.5 h-3.5 mr-1.5 shrink-0 stroke-black" />
                 <span className="truncate">{opp.deadline || 'Remote'}</span>
               </div>
             </div>
 
-            {/* Link */}
-            <a 
-              href={opp.opportunity_link} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="mt-2 flex items-center justify-center gap-1.5 w-full py-1.5 text-xs font-bold text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-transparent hover:border-indigo-100 shadow-sm bg-gray-50/50"
-            >
-              View Role <ExternalLink className="w-3 h-3" />
-            </a>
+            {/* Action Row */}
+            <div className="flex items-center gap-2 pt-1 border-t border-black/20">
+              <a 
+                href={opp.opportunity_link || '#'} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 flex items-center justify-center gap-1 py-1 text-xs font-black uppercase text-black bg-[#F0F9FF] hover:bg-[#BAE6FD] border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors"
+              >
+                Role Link <ExternalLink className="w-3 h-3" />
+              </a>
 
-            {/* Outcome Buttons for 'In Progress' */}
-            {item.status === 'interviewing' && (
-              <div className="flex gap-2 mt-2 pt-2 border-t border-gray-100" onClick={e => e.stopPropagation()}>
-                <button 
-                  onClick={() => moveToCareerTasks(item, 'Participation')}
-                  className="flex-1 text-[10px] font-bold py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors text-center"
+              <button
+                type="button"
+                onClick={() => setActiveOpportunity(opp)}
+                className="flex-1 py-1 text-xs font-black uppercase text-black bg-[#BAE6FD] hover:bg-[#7DD3FC] border-2 border-black shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors cursor-pointer text-center"
+              >
+                AI Gap Diagnostic
+              </button>
+            </div>
+
+            {/* Stage Quick Movement Controls */}
+            <div className="flex gap-1 pt-1 border-t border-black/10" onClick={e => e.stopPropagation()}>
+              {item.status === 'saved' && (
+                <button
+                  onClick={(e) => handleQuickAdvance(e, item, 'applied', '+40 XP')}
+                  className="w-full text-[10px] font-black uppercase py-1 bg-[#7DD3FC] hover:bg-black hover:text-[#7DD3FC] border border-black shadow-[1px_1px_0px_0px_#000] transition-colors cursor-pointer text-center"
                 >
-                  Participate
+                  Mark Applied →
                 </button>
-                <button 
-                  onClick={() => moveToCareerTasks(item, 'Win')}
-                  className="flex-1 text-[10px] font-bold py-1.5 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors text-center border border-green-200"
+              )}
+
+              {item.status === 'applied' && (
+                <button
+                  onClick={(e) => handleQuickAdvance(e, item, 'interviewing', '+80 XP')}
+                  className="w-full text-[10px] font-black uppercase py-1 bg-[#93C5FD] hover:bg-black hover:text-[#93C5FD] border border-black shadow-[1px_1px_0px_0px_#000] transition-colors cursor-pointer text-center"
                 >
-                  Win
+                  Move to Interviewing →
                 </button>
-                <button 
-                  onClick={() => moveToCareerTasks(item, 'Lose')}
-                  className="flex-1 text-[10px] font-bold py-1.5 bg-red-50 hover:bg-red-100 text-red-700 rounded-md transition-colors text-center border border-red-200"
+              )}
+
+              {item.status === 'interviewing' && (
+                <button
+                  onClick={(e) => handleQuickAdvance(e, item, 'completed', '+150 XP')}
+                  className="w-full text-[10px] font-black uppercase py-1 bg-[#86EFAC] hover:bg-emerald-400 text-black border border-black shadow-[1px_1px_0px_0px_#000] transition-colors cursor-pointer text-center flex items-center justify-center gap-1"
                 >
-                  Lose
+                  <Award className="w-3 h-3" />
+                  Log Offer / Win (+150 XP)
                 </button>
-              </div>
-            )}
+              )}
+
+              {item.status === 'completed' && (
+                <span className="w-full text-[10px] font-black uppercase py-1 bg-emerald-100 text-emerald-800 border border-emerald-400 text-center block">
+                  ✓ Milestone Achieved
+                </span>
+              )}
+            </div>
+
           </div>
         )}
       </Draggable>
@@ -277,88 +240,105 @@ export default function MyLadder({ session }) {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-gray-500 animate-pulse font-medium">Loading your ladder...</div>
+        <div className="text-black font-black uppercase tracking-widest text-lg animate-pulse">Loading Kanban board...</div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col max-w-7xl mx-auto w-full relative z-0">
-      {/* Decorative Background for Glassmorphism */}
-      <div className="absolute inset-0 bg-gradient-to-br from-indigo-50/40 via-blue-50/20 to-purple-50/40 pointer-events-none -z-10 rounded-[2rem]" />
-
-      <div className="mb-4 pt-2">
-        <h1 className="text-3xl font-extrabold text-gray-900 tracking-tight mb-2 flex items-center gap-3">
-          My Ladder
-          <span className="text-[10px] font-bold bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2.5 py-1 rounded-full uppercase tracking-widest shadow-md">Interactive</span>
-        </h1>
-        <p className="text-gray-500 text-sm font-medium">
-          Drag and drop cards between columns to update your progress.
-        </p>
-      </div>
-
-      <LadderHeader ladderItems={ladderItems} />
-
-      {/* Main Content Area */}
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex-1 flex gap-6 min-h-0 overflow-hidden relative">
-          
-          {/* Kanban Board */}
-          <div className="flex-1 flex gap-6 overflow-x-auto pb-4 pt-2 custom-scrollbar px-1">
-            {COLUMNS.map(column => {
-              const columnItems = ladderItems.filter(item => item.status === column.id);
-
-              return (
-                <div key={column.id} className="flex-1 min-w-[280px] max-w-xs flex flex-col h-full shrink-0">
-                  {/* Column Header */}
-                  <div className={`px-4 py-3 rounded-t-2xl border-t-[3px] ${column.borderColor} bg-white/60 backdrop-blur-md mb-3 shadow-sm shrink-0 flex items-center justify-between border-l border-r border-white/50 relative overflow-hidden`}>
-                    <div className="absolute inset-0 bg-gradient-to-b from-white/60 to-transparent pointer-events-none" />
-                    <h3 className="font-bold text-gray-800 text-sm relative z-10">{column.label}</h3>
-                    <span className="bg-white/90 text-gray-700 text-xs font-bold px-2.5 py-0.5 rounded-full shadow-[0_2px_4px_rgba(0,0,0,0.05)] border border-gray-100 relative z-10">
-                      {columnItems.length}
-                    </span>
-                  </div>
-
-                  {/* Droppable Area (Column Content) */}
-                  <Droppable droppableId={column.id}>
-                    {(provided, snapshot) => (
-                      <div 
-                        ref={provided.innerRef}
-                        {...provided.droppableProps}
-                        className={`flex-1 rounded-2xl border border-white/40 p-3 overflow-y-auto space-y-3 custom-scrollbar transition-all duration-300 ${
-                          snapshot.isDraggingOver 
-                            ? 'bg-indigo-50/40 backdrop-blur-xl border-indigo-200/50 shadow-[inset_0_0_30px_rgba(99,102,241,0.05)] ring-1 ring-indigo-100' 
-                            : `${column.bgColor} backdrop-blur-md shadow-[inset_0_4px_20px_rgba(255,255,255,0.4)]`
-                        }`}
-                      >
-                        {columnItems.length === 0 && !snapshot.isDraggingOver ? (
-                          <div className="h-24 border-2 border-dashed border-gray-300/50 rounded-xl flex items-center justify-center text-gray-400 text-sm font-medium bg-white/30">
-                            Drop tasks here
-                          </div>
-                        ) : (
-                          columnItems.map((item, index) => <LadderCard key={item.id} item={item} index={index} />)
-                        )}
-                        {provided.placeholder}
-                      </div>
-                    )}
-                  </Droppable>
-                </div>
-              );
-            })}
+    <div className="h-full flex flex-col max-w-7xl mx-auto w-full font-serif text-black space-y-6">
+      
+      {/* Page Header */}
+      <div className="border-b-4 border-black pb-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl sm:text-4xl font-black text-black tracking-tight uppercase">
+              My Ladder
+            </h1>
+            <span className="text-xs font-black bg-[#BAE6FD] border-2 border-black text-black px-3 py-1 uppercase tracking-widest shadow-[2px_2px_0px_0px_#000]">
+              {ladderItems.length} Tracked Opportunities
+            </span>
           </div>
 
-          {/* AI Gap Analysis Sidebar */}
-          {activeOpportunity && (
-            <div className="w-[350px] shrink-0 h-[calc(100%-1rem)] animate-in slide-in-from-right-8 duration-300 shadow-2xl rounded-2xl border border-white/80 overflow-hidden relative z-20">
-              <AIGapAnalysis 
-                opportunity={activeOpportunity} 
-                resumeText={resumeText} 
-                onClose={() => setActiveOpportunity(null)} 
-              />
-            </div>
-          )}
+          <p className="text-black/70 text-xs sm:text-sm font-bold mt-1">
+            Drag cards across pipeline stages. Click any role to inspect real-time AI Skill Gap diagnostics.
+          </p>
         </div>
-      </DragDropContext>
+      </div>
+
+      {celebrationToast && (
+        <div className="p-3.5 bg-[#86EFAC] border-3 border-black shadow-[4px_4px_0px_0px_#000] text-black text-xs font-black uppercase flex items-center gap-2 animate-bounce">
+          <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+          <span>{celebrationToast}</span>
+        </div>
+      )}
+
+      {/* Gamified Level & XP Header */}
+      <LadderHeader ladderItems={ladderItems} careerTasks={[]} />
+
+      {/* Kanban Board Columns Container */}
+      <div className="flex-1 flex gap-6 overflow-x-auto pb-6">
+        <DragDropContext onDragEnd={onDragEnd}>
+          {COLUMNS.map((column) => {
+            const columnItems = ladderItems.filter(item => item.status === column.id);
+
+            return (
+              <div 
+                key={column.id} 
+                className="flex-1 min-w-[280px] bg-[#F0F9FF] border-3 border-black flex flex-col h-full shadow-[5px_5px_0px_0px_#000]"
+              >
+                {/* Column Header */}
+                <div className={`p-3.5 border-b-3 border-black flex items-center justify-between ${column.tagColor}`}>
+                  <h3 className="font-black text-black text-xs sm:text-sm tracking-wider uppercase">
+                    {column.label}
+                  </h3>
+                  <span className="bg-white border-2 border-black px-2 py-0.5 text-xs font-black text-black shadow-[1px_1px_0px_0px_#000]">
+                    {columnItems.length}
+                  </span>
+                </div>
+
+                {/* Droppable Drop Zone */}
+                <Droppable droppableId={column.id}>
+                  {(provided, snapshot) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className={`flex-1 p-3.5 space-y-3.5 overflow-y-auto min-h-[380px] transition-colors ${
+                        snapshot.isDraggingOver ? 'bg-[#BAE6FD]/40' : 'bg-transparent'
+                      }`}
+                    >
+                      {columnItems.map((item, index) => (
+                        <LadderCard key={item.id} item={item} index={index} />
+                      ))}
+                      {provided.placeholder}
+
+                      {columnItems.length === 0 && (
+                        <div className="h-32 border-2 border-dashed border-black/30 flex items-center justify-center text-center p-4">
+                          <p className="text-black/50 font-bold text-xs uppercase">
+                            No opportunities in this stage. Drag cards here or save from the feed.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </Droppable>
+              </div>
+            );
+          })}
+        </DragDropContext>
+
+        {/* Side Drawer: AI Gap Analysis for selected opportunity */}
+        {activeOpportunity && (
+          <div className="w-80 lg:w-96 shrink-0 h-full">
+            <AIGapAnalysis 
+              opportunity={activeOpportunity} 
+              resumeText={resumeText} 
+              onClose={() => setActiveOpportunity(null)} 
+            />
+          </div>
+        )}
+      </div>
+
     </div>
   );
 }

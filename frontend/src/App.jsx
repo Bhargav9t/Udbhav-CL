@@ -5,8 +5,8 @@ import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import AICoach from './components/AICoach';
 import MyLadder from './components/MyLadder';
-import CareerProgressionBoard from './components/CareerProgressionBoard';
 import JobMatcher from './components/JobMatcher';
+import { WaveGridBackground } from './components/ui/wave-grid-background';
 
 // Recruiter Components
 import RecruiterDashboard from './components/recruiter/RecruiterDashboard';
@@ -15,6 +15,32 @@ import RecruiterJobs from './components/recruiter/RecruiterJobs';
 import CandidateRanker from './components/recruiter/CandidateRanker';
 import RecruiterAnalytics from './components/recruiter/RecruiterAnalytics';
 
+const DEFAULT_CANDIDATE_RESUME = `Aarav Sharma
+San Francisco, CA | aarav.sharma@example.com | github.com/aaravsharma
+
+PROFESSIONAL SUMMARY
+Senior Full-Stack & Machine Learning Engineer with 5+ years of experience building high-throughput web applications, microservices, and AI agent systems. Specialist in Python, React, FastAPI, PyTorch, and PostgreSQL.
+
+CORE TECHNICAL SKILLS
+- Programming Languages: Python, TypeScript, JavaScript, SQL, Go
+- Web & APIs: React, Next.js, FastAPI, Node.js, Tailwind CSS, REST, WebSockets
+- AI & Machine Learning: PyTorch, LangChain, Hugging Face Transformers, Vector Databases (pgvector, Pinecone)
+- Infrastructure & Cloud: AWS (ECS, S3, RDS), Docker, Kubernetes, Git, CI/CD pipelines, PostgreSQL, Redis
+
+WORK EXPERIENCE
+Senior Full-Stack AI Engineer | Apex Systems (2022 - Present)
+- Architected asynchronous FastAPI microservices serving 450,000+ daily inference requests with sub-60ms latency.
+- Built interactive real-time multi-agent dashboards using React, TypeScript, and WebSockets.
+- Integrated vector search indexing using pgvector and Pinecone, boosting semantic search accuracy by 38%.
+
+Software Engineer | NextGen Cloud (2020 - 2022)
+- Developed full-stack web applications using React, Node.js, and PostgreSQL.
+- Containerized development workflows using Docker Compose and established automated GitHub Actions CI/CD pipelines.
+
+EDUCATION
+B.S. in Computer Science | University of Washington (2016 - 2020)
+`;
+
 export default function App() {
   const [session, setSession] = useState(null);
   const [userRole, setUserRole] = useState('job_seeker'); // 'job_seeker' or 'recruiter'
@@ -22,7 +48,7 @@ export default function App() {
   
   // Navigation & context state
   const [currentView, setCurrentView] = useState('dashboard');
-  const [resumeText, setResumeText] = useState(() => localStorage.getItem('career_ladder_resume') || '');
+  const [resumeText, setResumeText] = useState(() => localStorage.getItem('career_ladder_resume') || DEFAULT_CANDIDATE_RESUME);
   const [currentJobContext, setCurrentJobContext] = useState(null);
   const [activeRecruiterJob, setActiveRecruiterJob] = useState(null);
 
@@ -141,8 +167,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-900">
-        <div className="text-white text-xl animate-pulse">Loading CareerLadder...</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#F0F9FF] font-serif text-black">
+        <div className="p-6 bg-white border-3 border-black shadow-[6px_6px_0px_0px_#000] text-lg font-black uppercase tracking-wider animate-pulse">
+          Loading Career Ladder...
+        </div>
       </div>
     );
   }
@@ -186,30 +214,26 @@ export default function App() {
     };
 
     return (
-      <div className="min-h-screen bg-gray-900 flex flex-col justify-center items-center p-4">
-        {!isSupabaseConfigured && (
-          <div className="w-full max-w-md mb-6 p-4 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-200 text-xs text-center backdrop-blur-md">
-            <p className="font-bold text-sm mb-1 text-amber-100">CareerLadder Multi-Role Environment</p>
-            <p className="mb-3 text-amber-300/90 leading-relaxed text-[11px]">
-              Explore both the <strong>Job Seeker Portal</strong> (AI Coach, Job Matcher, Roadmap) and the <strong>Recruiter Portal</strong> (Job Postings, Multi-Resume AI Ranker).
-            </p>
-            <div className="flex items-center justify-center gap-2">
-              <button
-                onClick={() => handleEnterDemo('job_seeker')}
-                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors shadow-md text-xs cursor-pointer"
-              >
-                🎯 Job Seeker Demo
-              </button>
-              <button
-                onClick={() => handleEnterDemo('recruiter')}
-                className="px-3.5 py-2 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-lg transition-colors shadow-md text-xs cursor-pointer"
-              >
-                🏢 Recruiter Demo
-              </button>
-            </div>
-          </div>
-        )}
-        <AuthForm onSuccess={handleAuthSuccess} />
+      <div className="min-h-screen w-full bg-[#F0F9FF] font-serif text-black relative selection:bg-[#7DD3FC] overflow-x-hidden">
+        {/* 3D Wave Grid Background */}
+        <div className="fixed inset-0 z-0 pointer-events-none opacity-85">
+          <WaveGridBackground 
+            colorBase="#E0F2FE"
+            colorHigh="#38BDF8"
+            gridSize={40}
+            waveAmplitude={0.4}
+            waveSpeed={5.5}
+          />
+        </div>
+
+        {/* Full-Page Auth Experience */}
+        <div className="relative z-10 w-full min-h-screen">
+          <AuthForm 
+            onSuccess={handleAuthSuccess} 
+            onEnterDemo={handleEnterDemo}
+            isSupabaseConfigured={isSupabaseConfigured}
+          />
+        </div>
       </div>
     );
   }
@@ -229,7 +253,9 @@ export default function App() {
           {currentView === 'dashboard' && (
             <Dashboard 
               resumeText={resumeText} 
+              setResumeText={setResumeText}
               onAskAI={handleOpenAICoachWithJob} 
+              onNavigate={handleNavigate}
             />
           )}
           {currentView === 'jobmatcher' && (
@@ -244,10 +270,7 @@ export default function App() {
             />
           )}
           {currentView === 'myladder' && (
-            <MyLadder session={session} />
-          )}
-          {currentView === 'careerprogression' && (
-            <CareerProgressionBoard session={session} />
+            <MyLadder session={session} onNavigate={handleNavigate} />
           )}
         </>
       )}

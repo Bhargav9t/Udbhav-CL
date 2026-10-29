@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Sparkles, AlertCircle, TrendingUp, Lightbulb, X, CheckCircle2, 
-  ShieldAlert, BookOpen, Target, Award, ArrowRight 
-} from 'lucide-react';
+import { Sparkles, AlertCircle, TrendingUp, Lightbulb, X } from 'lucide-react';
 import { analyzeSkillGap } from '../lib/ai';
 
 export default function AIGapAnalysis({ opportunity, resumeText, onClose }) {
@@ -15,7 +12,7 @@ export default function AIGapAnalysis({ opportunity, resumeText, onClose }) {
     const fetchAnalysis = async () => {
       setLoading(true);
       if (!resumeText) {
-        setAnalysis({ error: "No resume found. Please add your resume in the AI Coach or Job Matcher tab first." });
+        setAnalysis({ error: "No resume found. Please add your resume in the AI Coach tab first." });
         setLoading(false);
         return;
       }
@@ -38,194 +35,92 @@ export default function AIGapAnalysis({ opportunity, resumeText, onClose }) {
     };
   }, [opportunity, resumeText]);
 
-  const score = analysis?.match_score ?? analysis?.matchPercentage ?? 0;
-  const readiness = analysis?.career_verdict?.readiness;
-  const summary = analysis?.match_summary;
-  const nextStep = analysis?.career_verdict?.next_step ?? analysis?.actionableTip;
-
   return (
-    <div className="bg-white/95 backdrop-blur-xl border border-indigo-100 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] overflow-hidden flex flex-col h-full relative">
+    <div className="bg-white border-3 border-black shadow-[6px_6px_0px_0px_#000] overflow-hidden flex flex-col h-full font-serif text-black">
       
       {/* Header */}
-      <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 p-4 shrink-0 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-2 text-white">
-          <Sparkles className="w-5 h-5" />
-          <h3 className="font-bold tracking-wide text-sm sm:text-base">AI Skill Gap Analysis</h3>
+      <div className="bg-[#7DD3FC] border-b-3 border-black p-4 shrink-0 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-black">
+          <div className="p-1 bg-black text-[#7DD3FC] border border-black shadow-[1px_1px_0px_0px_#000]">
+            <Sparkles className="w-4 h-4" />
+          </div>
+          <h3 className="font-black tracking-wide uppercase text-sm">AI Gap Analysis</h3>
         </div>
         {onClose && (
           <button 
             onClick={onClose}
-            className="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 p-1.5 rounded-full transition-colors cursor-pointer"
+            className="text-black bg-white hover:bg-[#BAE6FD] border-2 border-black p-1 shadow-[2px_2px_0px_0px_#000] active:translate-x-0.5 active:translate-y-0.5 transition-colors cursor-pointer"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4 stroke-[2.5]" />
           </button>
         )}
       </div>
 
       {/* Content */}
-      <div className="p-5 flex-1 overflow-y-auto space-y-5">
-        <div className="flex items-center justify-between text-xs text-gray-500 pb-2 border-b border-gray-100">
-          <span className="font-bold uppercase tracking-wider text-gray-400">Target Role</span>
-          <span className="font-bold text-gray-800 truncate max-w-[240px]">{opportunity?.title}</span>
-        </div>
+      <div className="p-5 flex-1 overflow-y-auto">
+        <p className="text-xs font-black uppercase tracking-wider text-black/60 mb-4">
+          Target Role: <span className="text-black underline underline-offset-2">{opportunity.title}</span>
+        </p>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 space-y-4">
-            <div className="w-9 h-9 rounded-full border-3 border-indigo-200 border-t-indigo-600 animate-spin"></div>
-            <p className="text-sm font-semibold text-gray-600 animate-pulse">
-              Running In-Depth Skill Gap Intelligence...
-            </p>
-            <p className="text-xs text-gray-400">Comparing requirements against verified resume skills</p>
+          <div className="flex flex-col items-center justify-center py-10 space-y-3">
+            <div className="w-8 h-8 border-3 border-black border-t-[#38BDF8] animate-spin"></div>
+            <p className="text-xs font-black uppercase tracking-widest text-black animate-pulse">Running AI Analysis...</p>
           </div>
         ) : analysis.error ? (
-          <div className="bg-red-50 border border-red-200 p-4 rounded-xl flex gap-3 text-red-700">
-            <AlertCircle className="w-5 h-5 shrink-0" />
-            <p className="text-sm font-medium">{analysis.error}</p>
+          <div className="bg-[#E0F2FE] border-2 border-black p-4 shadow-[3px_3px_0px_0px_#000] flex gap-3 text-black">
+            <AlertCircle className="w-5 h-5 shrink-0 stroke-black" />
+            <p className="text-xs font-bold">{analysis.error}</p>
           </div>
         ) : (
-          <div className="space-y-5">
+          <div className="space-y-6">
             
-            {/* Match Percentage & Gauge */}
-            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200">
-              <div className="flex justify-between items-center mb-2">
-                <div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-gray-400 block">
-                    Role Suitability Score
-                  </span>
-                  {readiness && (
-                    <span className="text-xs font-semibold text-indigo-700">
-                      {readiness}
-                    </span>
-                  )}
-                </div>
-                <span className="text-3xl font-black text-indigo-600 leading-none">{score}%</span>
+            {/* Match Percentage */}
+            <div className="border-2 border-black p-4 bg-[#F0F9FF] shadow-[3px_3px_0px_0px_#000]">
+              <div className="flex justify-between items-end mb-2">
+                <span className="text-xs font-black uppercase tracking-wider text-black">Match Profile</span>
+                <span className="text-3xl font-black text-black leading-none">{analysis.matchPercentage}%</span>
               </div>
-              <div className="h-2.5 w-full bg-gray-200 rounded-full overflow-hidden">
+              <div className="h-4 w-full bg-white border-2 border-black p-0.5 overflow-hidden">
                 <div 
-                  className={`h-full transition-all duration-1000 ${
-                    score >= 80 ? 'bg-emerald-500' :
-                    score >= 60 ? 'bg-amber-500' : 'bg-rose-500'
+                  className={`h-full border-r-2 border-black transition-all duration-700 ${
+                    analysis.matchPercentage >= 80 ? 'bg-[#38BDF8]' :
+                    analysis.matchPercentage >= 50 ? 'bg-[#7DD3FC]' : 'bg-[#BAE6FD]'
                   }`}
-                  style={{ width: `${score}%` }}
+                  style={{ width: `${analysis.matchPercentage}%` }}
                 ></div>
               </div>
             </div>
 
-            {/* Match Summary */}
-            {summary && (
-              <div className="p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-xl text-xs text-gray-700 leading-relaxed font-sans">
-                <span className="font-bold text-indigo-900 block mb-1">Executive Assessment:</span>
-                {summary}
+            {/* Missing Skills */}
+            <div className="bg-white border-2 border-black p-4 shadow-[3px_3px_0px_0px_#000]">
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp className="w-4 h-4 stroke-black" />
+                <h4 className="text-xs font-black uppercase tracking-wider text-black">Recommended Skills to Add</h4>
               </div>
-            )}
-
-            {/* Immediate Next Step Callout */}
-            {nextStep && (
-              <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl flex gap-3">
-                <Lightbulb className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-[11px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">
-                    Most Important Next Step
-                  </h4>
-                  <p className="text-xs text-amber-950 font-medium leading-relaxed">
-                    {nextStep}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Missing Skills with Priority Badges */}
-            <div className="bg-rose-50/40 border border-rose-100 p-4 rounded-xl space-y-2.5">
-              <div className="flex items-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-rose-600" />
-                <h4 className="text-xs font-bold text-rose-950 uppercase tracking-wider">
-                  Missing Skills & Requirements
-                </h4>
-              </div>
-
-              {analysis.missing_skills && analysis.missing_skills.length > 0 ? (
-                <div className="space-y-2">
-                  {analysis.missing_skills.map((item, idx) => {
-                    const skill = typeof item === 'string' ? item : item.skill;
-                    const priority = item.priority || 'High';
-                    const reason = item.reason || 'Not found in resume.';
-
-                    return (
-                      <div key={idx} className="bg-white p-2.5 rounded-lg border border-rose-100 text-xs shadow-2xs space-y-1">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-gray-900">{skill}</span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                            priority === 'Critical' ? 'bg-red-100 text-red-800' :
-                            priority === 'High' ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'
-                          }`}>
-                            {priority}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-gray-600">{reason}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : analysis.missingSkills && analysis.missingSkills.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {analysis.missingSkills.map((s, idx) => (
-                    <span key={idx} className="bg-white border border-rose-200 text-rose-700 px-2 py-1 rounded text-xs font-bold">
-                      {s}
+              {analysis.missingSkills && analysis.missingSkills.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {analysis.missingSkills.map((skill, idx) => (
+                    <span key={idx} className="bg-[#BAE6FD] border-2 border-black text-black px-2.5 py-1 text-xs font-black uppercase shadow-[1px_1px_0px_0px_#000]">
+                      + {skill}
                     </span>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-emerald-700 font-semibold flex items-center gap-1.5">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> All required skills covered!
-                </p>
+                <p className="text-xs text-black font-bold bg-[#BAE6FD] p-2 border border-black">You possess all core competencies for this role!</p>
               )}
             </div>
 
-            {/* Matched Skills Overview */}
-            {analysis.matched_skills && analysis.matched_skills.length > 0 && (
-              <div className="bg-emerald-50/40 border border-emerald-100 p-4 rounded-xl space-y-2">
-                <div className="flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  <h4 className="text-xs font-bold text-emerald-950 uppercase tracking-wider">
-                    Verified Matched Skills ({analysis.matched_skills.length})
-                  </h4>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {analysis.matched_skills.map((item, idx) => {
-                    const skill = typeof item === 'string' ? item : item.skill;
-                    return (
-                      <span key={idx} className="bg-white border border-emerald-200 text-emerald-800 px-2.5 py-1 rounded-md text-xs font-semibold shadow-2xs">
-                        ✓ {skill}
-                      </span>
-                    );
-                  })}
-                </div>
+            {/* Actionable Tip */}
+            <div className="bg-[#E0F2FE] border-2 border-black p-4 shadow-[3px_3px_0px_0px_#000] flex gap-3">
+              <Lightbulb className="w-5 h-5 text-black shrink-0 stroke-black" />
+              <div>
+                <h4 className="text-[11px] font-black text-black uppercase tracking-widest mb-1">Coach Action Item</h4>
+                <p className="text-xs text-black leading-relaxed font-bold">
+                  {analysis.actionableTip}
+                </p>
               </div>
-            )}
-
-            {/* Top Priorities & Recommended Action */}
-            {analysis.top_priorities && analysis.top_priorities.length > 0 && (
-              <div className="bg-indigo-50/40 border border-indigo-100 p-4 rounded-xl space-y-2">
-                <div className="flex items-center gap-2">
-                  <Target className="w-4 h-4 text-indigo-600" />
-                  <h4 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">
-                    Top Skills to Focus on First
-                  </h4>
-                </div>
-                <div className="space-y-1.5 text-xs text-gray-700">
-                  {analysis.top_priorities.slice(0, 3).map((item, idx) => {
-                    const skill = typeof item === 'string' ? item : item.skill;
-                    const why = item.why_first || '';
-                    return (
-                      <div key={idx} className="flex items-start gap-1.5">
-                        <span className="font-bold text-indigo-600 shrink-0">{idx + 1}.</span>
-                        <span><strong>{skill}</strong>{why ? ` — ${why}` : ''}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            </div>
 
           </div>
         )}

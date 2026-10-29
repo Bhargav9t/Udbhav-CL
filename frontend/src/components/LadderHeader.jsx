@@ -1,68 +1,34 @@
 import React, { useMemo } from 'react';
 import { Trophy, Star, Clock, Zap } from 'lucide-react';
+import { computeCareerStats } from '../lib/ladderService';
 
-export default function LadderHeader({ ladderItems }) {
+export default function LadderHeader({ ladderItems = [], careerTasks = [] }) {
   const stats = useMemo(() => {
-    if (!ladderItems || ladderItems.length === 0) {
-      return { level: 1, skills: [], nextDeadline: 'No upcoming deadlines', progressPercent: 0, xp: 0, nextLevelXp: 100 };
-    }
-
-    const completed = ladderItems.filter(i => i.status === 'completed');
-    const level = Math.floor(completed.length / 2) + 1; // Level up every 2 completed tasks
-    
-    // XP Calculation
-    const weight = { saved: 10, applied: 30, interviewing: 60, completed: 100 };
-    const currentXp = ladderItems.reduce((acc, item) => acc + (weight[item.status] || 0), 0);
-    const maxPossibleXp = ladderItems.length * 100;
-    const progressPercent = maxPossibleXp === 0 ? 0 : Math.round((currentXp / maxPossibleXp) * 100);
-
-    // Extract basic skills from completed categories & titles
-    const extractedSkills = new Set();
-    completed.forEach(item => {
-      const opp = item.opportunities;
-      if (opp) {
-        if (opp.category) extractedSkills.add(opp.category);
-        const titleWords = opp.title.split(' ');
-        // Just grab the first couple significant words as fake "skills" for the gamification
-        if (titleWords.length > 0) extractedSkills.add(titleWords[0].replace(/[^a-zA-Z]/g, ''));
-      }
-    });
-    
-    // Default skills if empty
-    const skills = extractedSkills.size > 0 
-      ? Array.from(extractedSkills).filter(Boolean).slice(0, 3) 
-      : ['Problem Solving'];
-
-    // Next Deadline
-    const pending = ladderItems.filter(i => i.status !== 'completed' && i.opportunities?.deadline && i.opportunities.deadline !== 'Remote');
-    const nextDeadline = pending.length > 0 ? pending[0].opportunities.deadline : 'No upcoming deadlines';
-
-    return { level, skills, nextDeadline, progressPercent, xp: currentXp, maxPossibleXp };
-  }, [ladderItems]);
+    return computeCareerStats(ladderItems, careerTasks);
+  }, [ladderItems, careerTasks]);
 
   return (
-    <div className="mb-8 space-y-6">
+    <div className="mb-8 space-y-6 font-serif text-black">
       
       {/* XP Bar Section */}
-      <div className="bg-white/40 backdrop-blur-md rounded-2xl p-5 border border-white/50 shadow-sm relative overflow-hidden">
-        <div className="flex justify-between items-end mb-2">
+      <div className="bg-white/95 backdrop-blur-sm border-3 border-black shadow-[6px_6px_0px_0px_#000] p-5">
+        <div className="flex justify-between items-end mb-3">
           <div className="flex items-center gap-2">
-            <Zap className="w-5 h-5 text-amber-500 fill-amber-500" />
-            <h3 className="font-bold text-gray-800 text-sm tracking-wide uppercase">Ladder Progress</h3>
+            <div className="w-7 h-7 bg-[#7DD3FC] border-2 border-black flex items-center justify-center shadow-[2px_2px_0px_0px_#000]">
+              <Zap className="w-4 h-4 text-black fill-black" />
+            </div>
+            <h3 className="font-black text-black text-sm tracking-widest uppercase">Career Level & Progression XP</h3>
           </div>
-          <span className="text-xs font-bold text-gray-500">
-            {stats.xp} / {stats.maxPossibleXp || 100} XP
+          <span className="text-xs font-black uppercase px-2.5 py-1 bg-[#E0F2FE] border-2 border-black shadow-[2px_2px_0px_0px_#000]">
+            {stats.totalXp} / {stats.levelCap} XP ({stats.progressPercent}%)
           </span>
         </div>
         
-        <div className="h-4 w-full bg-gray-100 rounded-full overflow-hidden shadow-inner">
+        <div className="h-6 w-full bg-[#F0F9FF] border-2 border-black p-0.5 overflow-hidden shadow-inner">
           <div 
-            className="h-full bg-gradient-to-r from-purple-500 to-indigo-500 transition-all duration-1000 ease-out relative"
+            className="h-full bg-[#38BDF8] border-r-2 border-black transition-all duration-700 ease-out"
             style={{ width: `${stats.progressPercent}%` }}
-          >
-            {/* Shimmer effect */}
-            <div className="absolute top-0 left-0 right-0 bottom-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full animate-[shimmer_2s_infinite]"></div>
-          </div>
+          />
         </div>
       </div>
 
@@ -70,28 +36,26 @@ export default function LadderHeader({ ladderItems }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Career Level */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-center gap-4 hover:-translate-y-1 transition-transform">
-          <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center border border-white shrink-0 shadow-inner">
-            <Trophy className="w-6 h-6 text-indigo-600" />
+        <div className="bg-white/95 backdrop-blur-sm border-3 border-black shadow-[5px_5px_0px_0px_#000] p-5 flex items-center gap-4 hover:-translate-x-0.5 hover:-translate-y-0.5 transition-transform">
+          <div className="w-12 h-12 bg-[#BAE6FD] border-2 border-black flex items-center justify-center shrink-0 shadow-[3px_3px_0px_0px_#000]">
+            <Trophy className="w-6 h-6 text-black stroke-[2.5]" />
           </div>
           <div>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Career Level</p>
-            <div className="flex items-baseline gap-1">
-              <span className="text-2xl font-extrabold text-gray-900 leading-none">Lv. {stats.level}</span>
-            </div>
+            <p className="text-[11px] font-black text-black/60 uppercase tracking-widest mb-1">Career Level</p>
+            <span className="text-2xl font-black text-black leading-none">Level {stats.level}</span>
           </div>
         </div>
 
         {/* Skills Earned */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-center gap-4 hover:-translate-y-1 transition-transform">
-          <div className="w-12 h-12 bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl flex items-center justify-center border border-white shrink-0 shadow-inner">
-            <Star className="w-6 h-6 text-amber-500" />
+        <div className="bg-white/95 backdrop-blur-sm border-3 border-black shadow-[5px_5px_0px_0px_#000] p-5 flex items-center gap-4 hover:-translate-x-0.5 hover:-translate-y-0.5 transition-transform">
+          <div className="w-12 h-12 bg-[#7DD3FC] border-2 border-black flex items-center justify-center shrink-0 shadow-[3px_3px_0px_0px_#000]">
+            <Star className="w-6 h-6 text-black fill-black" />
           </div>
-          <div className="w-full">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Skills Earned</p>
+          <div className="w-full min-w-0">
+            <p className="text-[11px] font-black text-black/60 uppercase tracking-widest mb-1">Core Competencies</p>
             <div className="flex gap-1.5 flex-wrap">
               {stats.skills.map((skill, idx) => (
-                <span key={idx} className="bg-white px-2 py-0.5 rounded-md text-[10px] font-bold text-amber-700 border border-amber-100 shadow-sm truncate max-w-[80px]">
+                <span key={idx} className="bg-[#E0F2FE] px-2 py-0.5 text-[10px] font-black uppercase text-black border-2 border-black shadow-[1px_1px_0px_0px_#000] truncate max-w-[120px]">
                   {skill}
                 </span>
               ))}
@@ -100,13 +64,13 @@ export default function LadderHeader({ ladderItems }) {
         </div>
 
         {/* Next Deadline */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white/80 rounded-2xl p-5 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.05)] flex items-center gap-4 hover:-translate-y-1 transition-transform">
-          <div className="w-12 h-12 bg-gradient-to-br from-rose-50 to-pink-50 rounded-xl flex items-center justify-center border border-white shrink-0 shadow-inner">
-            <Clock className="w-6 h-6 text-rose-500" />
+        <div className="bg-white/95 backdrop-blur-sm border-3 border-black shadow-[5px_5px_0px_0px_#000] p-5 flex items-center gap-4 hover:-translate-x-0.5 hover:-translate-y-0.5 transition-transform">
+          <div className="w-12 h-12 bg-[#93C5FD] border-2 border-black flex items-center justify-center shrink-0 shadow-[3px_3px_0px_0px_#000]">
+            <Clock className="w-6 h-6 text-black stroke-[2.5]" />
           </div>
           <div className="min-w-0">
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Next Deadline</p>
-            <p className="text-sm font-bold text-gray-900 truncate">{stats.nextDeadline}</p>
+            <p className="text-[11px] font-black text-black/60 uppercase tracking-widest mb-1">Next Upcoming Target</p>
+            <p className="text-sm font-black text-black truncate">{stats.nextDeadline}</p>
           </div>
         </div>
 
